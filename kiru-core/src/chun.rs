@@ -1,0 +1,273 @@
+use std::vec::IntoIter;
+
+use crate::{chunk_string_by_bytes, ChunkingError};
+
+struct StringBuffer<I>
+where
+    I: Iterator<Item = String>,
+{
+    stream: I,
+    buffer: String,
+    min_buffer_size: usize,
+    pub done: bool,
+    pub position: usize,
+}
+
+impl<I> StringBuffer<I>
+where
+    I: Iterator<Item = String>,
+{
+    fn new(stream: I, min_buffer_size: usize) -> Self {
+        Self {
+            stream,
+            buffer: String::new(),
+            min_buffer_size,
+            done: false,
+            position: 0,
+        }
+    }
+
+    fn fill(&mut self) {
+        self.compact();
+        // if we are not done and buffer already meets min size, try to add one block
+        if !self.done && self.buffer.len() >= self.min_buffer_size {
+            if let Some(chunk) = self.stream.next() {
+                self.buffer.push_str(&chunk);
+            } else {
+                self.done = true;
+            }
+        } else {
+            // keep filling until done or buffer meets min size
+            while !self.done && self.buffer.len() < self.min_buffer_size {
+                match self.stream.next() {
+                    Some(chunk) => {
+                        self.buffer.push_str(&chunk);
+                    }
+                    None => {
+                        self.done = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn buffer(&self) -> &String {
+        &self.buffer
+    }
+
+    fn compact(&mut self) {
+        if self.position > self.buffer.len() / 2 {
+            self.buffer.drain(0..self.position);
+            self.position = 0;
+        }
+    }
+
+    pub fn set_position(&mut self, position: usize) {
+        self.position = position;
+    }
+
+    pub fn len(&self) -> usize {
+        self.buffer.len()
+    }
+}
+
+pub trait Chunker {
+    fn chunk_string(self, input: String) -> impl Iterator<Item = String>;
+    fn chunk_stream(self, input: impl Iterator<Item = String>) -> impl Iterator<Item = String>;
+}
+
+struct ByteChunkIndices {
+    start: usize,
+    end: usize,
+    new_position: usize,
+}
+
+struct BytesChunker {
+    chunk_size: usize,
+    overlap: usize,
+}
+
+impl BytesChunker {
+    fn new(chunk_size: usize, overlap: usize) -> Result<Self, ChunkingError> {
+        if overlap >= chunk_size {
+            return Err(ChunkingError::InvalidArguments {
+                chunk_size,
+                overlap,
+            });
+        }
+
+        Ok(Self {
+            chunk_size,
+            overlap,
+        })
+    }
+
+    fn next_chunk_indices(
+        &self,
+        buffer: &str,
+        current_position: usize,
+    ) -> Option<ByteChunkIndices> {
+        let buffer_len = buffer.len();
+
+        // Done
+        if current_position >= buffer_len {
+            return None;
+        }
+
+        let start = current_position;
+
+        // Start MUST be at char boundary
+        assert!(
+            buffer.is_char_boundary(start),
+            "Bug: start position {} is not at char boundary",
+            start
+        );
+
+        // Target end position (in bytes)
+        let target_end = (start + self.chunk_size).min(buffer_len);
+
+        // Adjust end backwards to char boundary
+        let end = if target_end == buffer_len {
+            buffer_len // End of string is always valid
+        } else if buffer.is_char_boundary(target_end) {
+            target_end // Lucky - already at boundary
+        } else {
+            // Search backwards (max 3 bytes for UTF-8)
+            (target_end.saturating_sub(3)..target_end)
+                .rev()
+                .find(|&i| buffer.is_char_boundary(i))
+                .expect("Bug: no char boundary found")
+        };
+
+        // If we've reached the end of text, we're done after this chunk
+        if end >= buffer_len {
+            return Some(ByteChunkIndices {
+                start,
+                end,
+                new_position: buffer_len,
+            });
+        }
+
+        // Calculate next position
+        let actual_chunk_len = end - start;
+        let step = actual_chunk_len.saturating_sub(self.overlap);
+
+        let target_next_pos = start + step;
+
+        // Adjust next position forward to char boundary
+        let next_pos = if buffer.is_char_boundary(target_next_pos) {
+            target_next_pos
+        } else {
+            // Search backward (max 3 bytes) to ensure we get AT LEAST the requested overlap
+            (target_next_pos.saturating_sub(3)..=target_next_pos)
+                .rev()
+                .find(|&i| buffer.is_char_boundary(i))
+                .expect("Bug: no char boundary found")
+        };
+
+        Some(ByteChunkIndices {
+            start,
+            end,
+            new_position: next_pos,
+        })
+    }
+}
+
+impl Chunker for BytesChunker {
+    fn chunk_string(self, input: String) -> impl Iterator<Item = String> {
+        let mut current_position = 0;
+
+        std::iter::from_fn(move || {
+            let next = self.next_chunk_indices(&input, current_position)?;
+            current_position = next.new_position;
+            Some(input[next.start..next.end].to_string())
+        })
+    }
+
+    fn chunk_stream(self, input: impl Iterator<Item = String>) -> impl Iterator<Item = String> {
+        let mut string_buffer = StringBuffer::new(input, self.chunk_size * 5);
+
+        std::iter::from_fn(move || loop {
+            let buffer = string_buffer.buffer();
+            let next = self.next_chunk_indices(buffer, string_buffer.position);
+
+            match next {
+                // if the stream is done and no more chunks can be made, return None
+                None if string_buffer.done => return None,
+
+                // if no chunk can be made but the stream is not done, fill more data and try again
+                None if !string_buffer.done => {
+                    string_buffer.fill();
+                    continue;
+                }
+
+                None => unreachable!(), // handled above
+
+                // if the chunk end reaches the buffer end but the stream is not done, fill more data and try again
+                Some(ref n @ ByteChunkIndices { end, .. })
+                    if !string_buffer.done && end == buffer.len() =>
+                {
+                    string_buffer.fill();
+                    continue;
+                }
+
+                // otherwise, return the chunk
+                Some(ref n) => {
+                    let chunk = buffer[n.start..n.end].to_string();
+                    string_buffer.set_position(n.new_position);
+                    return Some(chunk);
+                }
+            };
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stream::FileUtf8BlockReader;
+
+    const FILE_PATH: &str =
+        "/Users/jimzer/Projects/bitswired-clean/kiru/test-data/realistic-5.0mb.txt";
+
+    #[test]
+    fn test_string_buffer_compaction() {
+        let reader = FileUtf8BlockReader::new(FILE_PATH, 1024 * 8).unwrap();
+
+        let mut string_buffer = StringBuffer::new(reader, 1024 * 16);
+
+        while !string_buffer.done {
+            let content = string_buffer.buffer();
+            let content_len = content.len();
+            let can = content.is_char_boundary(content_len - 10);
+            if can {
+                string_buffer.set_position(content_len - 10);
+                assert!(
+                    string_buffer.position == 0,
+                    "Position should be updated correctly"
+                );
+                assert!(string_buffer.len() <= 10);
+            }
+        }
+    }
+
+    #[test]
+    fn test_bytes_chunker_stream() {
+        // let reader = FileUtf8BlockReader::new(FILE_PATH, 1024 * 8).unwrap();
+
+        let reader = vec!["01234".to_string(), "56789".to_string()].into_iter();
+        let overlap = 2;
+        let chunk_size = 6;
+
+        let chunker = BytesChunker::new(chunk_size, overlap).unwrap();
+
+        let mut chunked_iter = chunker.chunk_stream(reader);
+
+        // for loop on the chunked iter
+        for chunk in chunked_iter.by_ref() {
+            println!("Chunk length: {}", chunk.len());
+            println!("Chunk content: {}", &chunk);
+        }
+    }
+}

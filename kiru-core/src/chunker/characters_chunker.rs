@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_chunk_file_by_characters() {
-        let path = "test-data/100mb.txt".to_string();
+        let path = "../test-data/realistic-100.0mb.txt".to_string();
 
         let chunk_size = 8192;
         let overlap = 0;

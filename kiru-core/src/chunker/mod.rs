@@ -1,8 +1,10 @@
 mod bytes_chunker;
 mod characters_chunker;
 mod stream;
+
 pub use bytes_chunker::*;
 pub use characters_chunker::*;
+pub use stream::*;
 
 use std::io;
 use thiserror::Error;

@@ -5,10 +5,9 @@ from dataclasses import dataclass
 from typing import Callable, Tuple
 
 import pandas as pd
+from kiru import Chunker
 from langchain.text_splitter import CharacterTextSplitter
 from tqdm import tqdm
-
-from kiru import Chunker
 
 
 def kiru_chunking_bytes_file(path: str, chunk_size: int, overlap: int) -> None:
@@ -110,7 +109,7 @@ def create_benchmark_config() -> list[BenchmarkConfig]:
     overlaps = [0]
     runs = list(range(3))
 
-    file_paths = ["test-data/realistic-1.0mb.txt"]
+    file_paths = ["../test-data/realistic-1.0mb.txt"]
     file_sizes = [int(1 * 1024 * 1024)]
 
     source = ["string", "file"]

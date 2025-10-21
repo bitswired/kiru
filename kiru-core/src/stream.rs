@@ -88,7 +88,8 @@ impl Iterator for FileUtf8BlockReader {
 mod tests {
     use super::*;
 
-    const file_path: &str = "/Users/jimzer/Projects/bitswired-clean/kiru/test-data/simplewiki-latest-pages-articles.xml";
+    const file_path: &str =
+        "/Users/jimzer/Projects/bitswired-clean/kiru/test-data/realistic-100.0mb.txt";
 
     #[test]
     fn s() {

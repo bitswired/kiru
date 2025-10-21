@@ -1,0 +1,30 @@
+# kiru/Cargo.toml
+[package]
+name = "kiru"
+version = "0.1.0"
+edition = "2021"
+description = "Fast text chunking for Rust"
+license = "MIT"
+repository = "https://github.com/yourusername/kiru"
+keywords = ["text", "chunking", "nlp", "rag"]
+categories = ["text-processing"]
+
+[lib]
+name = "kiru"
+crate-type = ["rlib"] # ← Only Rust library, NOT cdylib!
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "file_chunking"
+harness = false
+
+[[bench]]
+name = "string_chunking"
+harness = false

@@ -1,26 +1,15 @@
-[package]
-name = "kiru"
-version = "0.1.0"
-edition = "2021"
+# kiru/Cargo.toml (workspace root)
+[workspace]
+members = [
+    "kiru-core", # Core Rust library
+    "kiru-py",   # Python bindings
+]
+resolver = "2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[lib]
-name = "kiru"
-crate-type = ["cdylib", "rlib"]
-
-[dependencies]
-pyo3 = "0.26.0"
+# Shared dependencies (optional but recommended)
+[workspace.dependencies]
 thiserror = "2.0.17"
-
-[dev-dependencies]
+pyo3 = "0.27.0"
 tempfile = "3.23.0"
 proptest = "1.8.0"
 criterion = "0.7.0"
-
-[[bench]]
-name = "file_chunking"
-harness = false
-
-[[bench]]
-name = "string_chunking"
-harness = false

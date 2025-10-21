@@ -1,7 +1,11 @@
-use pyo3::prelude::*;
+// kiru-py/src/lib.rs (ONLY PyO3 bindings)
 
-mod chunker;
-pub use chunker::*;
+use ::kiru as kiru_core;
+use pyo3::prelude::*; // Import from core library
+
+// ============================================================================
+// Python Classes (Builders)
+// ============================================================================
 
 #[pyclass]
 pub struct BytesChunkerBuilder {
@@ -19,6 +23,10 @@ pub struct CharactersChunkerBuilder {
 pub struct Chunker {
     inner: Box<dyn Iterator<Item = String> + Send + Sync>,
 }
+
+// ============================================================================
+// Python Methods
+// ============================================================================
 
 #[pymethods]
 impl Chunker {
@@ -66,7 +74,8 @@ impl Chunker {
 #[pymethods]
 impl BytesChunkerBuilder {
     fn from_text(&self, text: String) -> PyResult<Chunker> {
-        let iterator = chunk_string_by_bytes(text, self.chunk_size, self.overlap)
+        // Call into core Rust library
+        let iterator = kiru_core::chunk_string_by_bytes(text, self.chunk_size, self.overlap)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         Ok(Chunker {
             inner: Box::new(iterator),
@@ -74,7 +83,8 @@ impl BytesChunkerBuilder {
     }
 
     fn from_file(&self, path: String) -> PyResult<Chunker> {
-        let iterator = chunk_file_by_bytes(path, self.chunk_size, self.overlap)
+        // Call into core Rust library
+        let iterator = kiru_core::chunk_file_by_bytes(path, self.chunk_size, self.overlap)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         Ok(Chunker {
             inner: Box::new(iterator),
@@ -85,7 +95,7 @@ impl BytesChunkerBuilder {
 #[pymethods]
 impl CharactersChunkerBuilder {
     fn from_text(&self, text: String) -> PyResult<Chunker> {
-        let iterator = chunk_string_by_characters(text, self.chunk_size, self.overlap)
+        let iterator = kiru_core::chunk_string_by_characters(text, self.chunk_size, self.overlap)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         Ok(Chunker {
             inner: Box::new(iterator),
@@ -93,13 +103,17 @@ impl CharactersChunkerBuilder {
     }
 
     fn from_file(&self, path: String) -> PyResult<Chunker> {
-        let iterator = chunk_file_by_characters(path, self.chunk_size, self.overlap)
+        let iterator = kiru_core::chunk_file_by_characters(path, self.chunk_size, self.overlap)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         Ok(Chunker {
             inner: Box::new(iterator),
         })
     }
 }
+
+// ============================================================================
+// Python Module
+// ============================================================================
 
 #[pymodule]
 fn kiru(m: &Bound<'_, PyModule>) -> PyResult<()> {
