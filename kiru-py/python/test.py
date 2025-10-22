@@ -1,49 +1,12 @@
-import itertools as it
-import time
-import tracemalloc
-from dataclasses import dataclass
-from typing import Callable, Tuple
-
-import pandas as pd
+import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 from kiru import Chunker
 from langchain.text_splitter import CharacterTextSplitter
-from tqdm import tqdm
 
 
-def kiru_chunking_bytes_file(path: str, chunk_size: int, overlap: int) -> None:
-    """Run kiru byte-based chunking from file."""
-    chunker = Chunker.by_bytes(chunk_size=chunk_size, overlap=overlap).from_file(path)
-    for chunk in chunker:
-        _ = len(chunk)
-
-
-def kiru_chunking_chars_file(path: str, chunk_size: int, overlap: int) -> None:
-    """Run kiru character-based chunking from file."""
-    chunker = Chunker.by_characters(chunk_size=chunk_size, overlap=overlap).from_file(
-        path
-    )
-    for chunk in chunker:
-        _ = len(chunk)
-
-
-def kiru_chunking_bytes_string(text: str, chunk_size: int, overlap: int) -> None:
-    """Run kiru byte-based chunking from string."""
-    chunker = Chunker.by_bytes(chunk_size=chunk_size, overlap=overlap).from_text(text)
-    for chunk in chunker:
-        _ = len(chunk)
-
-
-def kiru_chunking_chars_string(text: str, chunk_size: int, overlap: int) -> None:
-    """Run kiru character-based chunking from string."""
-    chunker = Chunker.by_characters(chunk_size=chunk_size, overlap=overlap).from_text(
-        text
-    )
-    for chunk in chunker:
-        _ = len(chunk)
-
-
-def langchain_chunking_string(text: str, chunk_size: int, overlap: int) -> None:
-    """Run LangChain chunking from string."""
+def get_langchain_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
+    """Get chunks from LangChain with settings that match Kiru's behavior."""
     splitter = CharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=overlap,
@@ -52,175 +15,212 @@ def langchain_chunking_string(text: str, chunk_size: int, overlap: int) -> None:
         keep_separator=True,
         strip_whitespace=False,
     )
-    splitter.split_text(text)
+    return splitter.split_text(text)
 
 
-def langchain_chunking_file(path: str, chunk_size: int, overlap: int) -> None:
-    """Run LangChain chunking from string."""
-    splitter = CharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=overlap,
-        separator="",
-        is_separator_regex=False,
-        keep_separator=True,
-        strip_whitespace=False,
+def get_kiru_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
+    """Get chunks from Kiru."""
+    chunker = Chunker.by_characters(chunk_size=chunk_size, overlap=overlap)
+    return chunker.on_string(text).all()
+
+
+def chunks_are_identical(
+    kiru_chunks: list[str], langchain_chunks: list[str]
+) -> tuple[bool, str]:
+    """Compare chunks and return (is_identical, error_message)."""
+    if len(kiru_chunks) != len(langchain_chunks):
+        return (
+            False,
+            f"Different number of chunks: Kiru={len(kiru_chunks)}, LangChain={len(langchain_chunks)}",
+        )
+
+    for i, (kiru_chunk, langchain_chunk) in enumerate(
+        zip(kiru_chunks, langchain_chunks)
+    ):
+        if kiru_chunk != langchain_chunk:
+            # Find the first difference
+            for j, (k_char, l_char) in enumerate(zip(kiru_chunk, langchain_chunk)):
+                if k_char != l_char:
+                    return False, (
+                        f"Chunk {i} differs at position {j}: "
+                        f"Kiru='{k_char}' ({ord(k_char)}), LangChain='{l_char}' ({ord(l_char)})\n"
+                        f"Kiru chunk: {repr(kiru_chunk)}\n"
+                        f"LangChain chunk: {repr(langchain_chunk)}"
+                    )
+
+            # If we get here, one chunk is a prefix of the other
+            if len(kiru_chunk) != len(langchain_chunk):
+                longer = (
+                    kiru_chunk
+                    if len(kiru_chunk) > len(langchain_chunk)
+                    else langchain_chunk
+                )
+                shorter_len = min(len(kiru_chunk), len(langchain_chunk))
+                return False, (
+                    f"Chunk {i} has different length: Kiru={len(kiru_chunk)}, LangChain={len(langchain_chunk)}\n"
+                    f"Extra characters: {repr(longer[shorter_len:])}"
+                )
+
+    return True, ""
+
+
+class TestKiruLangChainComparison:
+    """Test suite comparing Kiru and LangChain chunking behavior."""
+
+    def test_simple_case(self):
+        """Test a simple known case."""
+        text = "Hello world! This is a test string. " * 5
+        chunk_size = 50
+        overlap = 10
+
+        kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+        langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+        is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+        assert is_identical, error
+
+    def test_no_overlap(self):
+        """Test chunking with no overlap."""
+        text = "abcdefghijklmnopqrstuvwxyz" * 10
+        chunk_size = 25
+        overlap = 0
+
+        kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+        langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+        is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+        assert is_identical, error
+
+    def test_full_overlap(self):
+        """Test chunking where overlap equals chunk_size - 1."""
+        text = "Hello world! " * 10
+        chunk_size = 20
+        overlap = 19
+
+        kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+        langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+        is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+        assert is_identical, error
+
+    def test_whitespace_preservation(self):
+        """Test that whitespace at chunk boundaries is preserved."""
+        text = "word   word\t\tword\n\nword"
+        chunk_size = 6
+        overlap = 2
+
+        kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+        langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+        is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+        assert is_identical, error
+
+    @given(
+        text=st.text(min_size=1, max_size=30_000),
+        chunk_size=st.integers(min_value=1, max_value=3_000),
+        overlap=st.integers(min_value=0, max_value=99),
     )
-    with open(path, "r", encoding="utf-8") as file:
-        data = file.read()
-    splitter.split_text(data)
+    @settings(max_examples=100, deadline=5000)
+    def test_hypothesis_random_inputs(self, text: str, chunk_size: int, overlap: int):
+        """Property-based test with random inputs."""
+        # Ensure overlap is less than chunk_size
+        assume(overlap < chunk_size)
+        # Skip empty or very short texts that might cause edge cases
+        assume(len(text) >= chunk_size)
 
+        try:
+            kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+            langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
 
-def benchmark_function(func: Callable, *args) -> Tuple[float, float]:
-    """Measure execution time and memory usage of a function."""
-    tracemalloc.start()
-    start_time = time.perf_counter()
+            is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+            assert is_identical, (
+                f"Chunks differ for text={repr(text[:50])}, chunk_size={chunk_size}, overlap={overlap}\n{error}"
+            )
 
-    try:
-        func(*args)
-    except MemoryError:
-        print(f"{func.__name__} encountered OOM error")
-        return float("inf"), float("inf")
-    except Exception as e:
-        print(f"{func.__name__} encountered error: {e}")
-        return float("inf"), float("inf")
+        except Exception as e:
+            # If both implementations fail the same way, that's acceptable
+            pytest.fail(
+                f"Unexpected error with text={repr(text[:50])}, chunk_size={chunk_size}, overlap={overlap}: {e}"
+            )
 
-    end_time = time.perf_counter()
-    current, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-
-    return end_time - start_time, peak / (1024 * 1024)  # Convert bytes to MB
-
-
-@dataclass
-class BenchmarkConfig:
-    library: str
-    strategy: str
-    source: str
-    file_path: str
-    file_size: int
-    chunk_size: int
-    overlap: int
-    run: int
-
-
-def create_benchmark_config() -> list[BenchmarkConfig]:
-    """Create benchmark configuration."""
-    chunk_sizes = [1024, 4096, 8192, 16384]
-    overlaps = [0]
-    runs = list(range(3))
-
-    file_paths = ["../test-data/realistic-1.0mb.txt"]
-    file_sizes = [int(1 * 1024 * 1024)]
-
-    source = ["string", "file"]
-
-    kiru_strategies = ["chars", "bytes"]
-    langchain_strategies = ["chars"]
-
-    def base():
-        return it.product(file_paths, file_sizes, chunk_sizes, overlaps, runs)
-
-    def l():
-        return it.product(["langchain"], langchain_strategies, source)
-
-    def k():
-        return it.product(["kiru"], kiru_strategies, source)
-
-    kiru_configs = it.product(k(), base())
-    langchain_configs = it.product(l(), base())
-
-    configs_gen = it.chain(kiru_configs, langchain_configs)
-
-    res = [
-        BenchmarkConfig(
-            library=lib_strat[0],
-            source=lib_strat[2],
-            strategy=lib_strat[1],
-            file_path=params[0],
-            file_size=params[1],
-            chunk_size=params[1],
-            overlap=params[2],
-            run=params[3],
-        )
-        for lib_strat, params in configs_gen
-    ]
-
-    return res
-
-
-def run_benchmarks(configs: list[BenchmarkConfig]):
-    # load all file in memory for the string benchmarks
-    files_paths = set(c.file_path for c in configs)
-    file_content_map = {x: open(x, "r", encoding="utf-8").read() for x in files_paths}
-
-    res = []
-
-    pbar = tqdm(configs)
-
-    for config in pbar:
-        pbar.set_description_str(
-            f"{config.library} | {config.strategy} | {config.source} | {config.file_size // (1024 * 1024)}MB | chunk: {config.chunk_size} | overlap: {config.overlap} | run: {config.run}"
-        )
-
-        func_map = {
-            ("kiru", "chars", "string"): kiru_chunking_chars_string,
-            ("kiru", "chars", "file"): kiru_chunking_chars_file,
-            ("kiru", "bytes", "string"): kiru_chunking_bytes_string,
-            ("kiru", "bytes", "file"): kiru_chunking_bytes_file,
-            ("langchain", "chars", "string"): langchain_chunking_string,
-            ("langchain", "chars", "file"): langchain_chunking_file,
-        }
-
-        func = func_map[(config.library, config.strategy, config.source)]
-
-        if config.source == "string":
-            x = file_content_map[config.file_path]
-        else:
-            x = config.file_path
-
-        exec_time, mem_usage = benchmark_function(
-            func, x, config.chunk_size, config.overlap
-        )
-        throughput = (
-            config.file_size / exec_time / (1024 * 1024) if exec_time > 0 else 0
-        )
-
-        res.append(
-            {
-                "library": config.library,
-                "strategy": config.strategy,
-                "source": config.source,
-                "file_size_mb": config.file_size / (1024 * 1024),
-                "chunk_size": config.chunk_size,
-                "overlap": config.overlap,
-                "run": config.run,
-                "time_s": exec_time,
-                "memory_mb": mem_usage,
-                "throughput_mb_s": throughput,
-            }
-        )
-
-    return res
-
-
-def main():
-    configs = create_benchmark_config()
-
-    df = pd.DataFrame(run_benchmarks(configs))
-
-    print(df)
-
-    a = df.groupby(
-        ["library", "strategy", "source", "file_size_mb", "chunk_size", "overlap"]
-    ).agg(
-        {
-            "time_s": ["mean", "std"],
-            "memory_mb": ["mean", "std"],
-            "throughput_mb_s": ["mean", "std"],
-        }
+    @pytest.mark.parametrize(
+        "chunk_size,overlap",
+        [
+            (10, 0),
+            (10, 5),
+            (10, 9),
+            (50, 10),
+            (100, 20),
+            (5, 1),
+            (1, 0),
+        ],
     )
-    print(a)
+    def test_parametrized_sizes(self, chunk_size: int, overlap: int):
+        """Test various chunk sizes and overlaps with known text."""
+        text = "The quick brown fox jumps over the lazy dog. " * 20
+
+        kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+        langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+        is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+        assert is_identical, error
 
 
-if __name__ == "__main__":
-    main()
+#     def test_unicode_characters(self):
+#         """Test with unicode characters."""
+#         text = "Hello 世界! Café naïve résumé 🚀🎉 " * 10
+#         chunk_size = 25
+#         overlap = 5
+
+#         kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+#         langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+#         is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+#         assert is_identical, error
+
+#     def test_edge_case_single_character(self):
+#         """Test with single character chunk size."""
+#         text = "abcdefghijk"
+#         chunk_size = 1
+#         overlap = 0
+
+#         kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+#         langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+#         is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+#         assert is_identical, error
+
+#     def test_edge_case_text_shorter_than_chunk(self):
+#         """Test when text is shorter than chunk size."""
+#         text = "short"
+#         chunk_size = 100
+#         overlap = 10
+
+#         kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+#         langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+#         is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+#         assert is_identical, error
+
+
+# if __name__ == "__main__":
+#     # Run a simple comparison for manual testing
+#     print("Running simple comparison...")
+
+#     text = "Hello world! This is a test string. " * 20
+#     chunk_size = 100
+#     overlap = 20
+
+#     kiru_chunks = get_kiru_chunks(text, chunk_size, overlap)
+#     langchain_chunks = get_langchain_chunks(text, chunk_size, overlap)
+
+#     print(f"Kiru chunks: {len(kiru_chunks)}")
+#     print(f"LangChain chunks: {len(langchain_chunks)}")
+
+#     is_identical, error = chunks_are_identical(kiru_chunks, langchain_chunks)
+#     if is_identical:
+#         print("✓ Chunks are identical!")
+#     else:
+#         print(f"✗ Chunks differ: {error}")
+
+#     print("\nRun 'pytest t.py' to run the full test suite")

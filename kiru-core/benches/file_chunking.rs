@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use kiru::{chunk_file_by_bytes, chunk_file_by_characters, chunk_string_by_bytes};
+use kiru::{BytesChunker, CharactersChunker, Chunker, Source, StreamType};
 use std::fs;
 use std::hint::black_box;
 use std::time::Duration;
 
-const LARGE_FILE_PATH: &str = "test-data/realistic-100.0mb.txt";
+const LARGE_FILE_PATH: &str = "../test-data/realistic-100.0mb.txt";
 
 fn benchmark_file_chunking_by_bytes(c: &mut Criterion) {
     // Check if file exists
@@ -30,13 +30,13 @@ fn benchmark_file_chunking_by_bytes(c: &mut Criterion) {
             &(chunk_size, overlap),
             |b, &(chunk_size, overlap)| {
                 b.iter(|| {
-                    let chunks: Vec<_> = chunk_file_by_bytes(
-                        black_box(LARGE_FILE_PATH.to_string()),
-                        black_box(chunk_size),
-                        black_box(overlap),
-                    )
-                    .unwrap()
-                    .collect();
+                    let chunker =
+                        BytesChunker::new(black_box(chunk_size), black_box(overlap)).unwrap();
+                    let stream = StreamType::from_source(&Source::File(black_box(
+                        LARGE_FILE_PATH.to_string(),
+                    )))
+                    .unwrap();
+                    let chunks: Vec<_> = chunker.chunk_stream(stream).collect();
                     black_box(chunks)
                 });
             },
@@ -70,13 +70,13 @@ fn benchmark_file_chunking_by_characters(c: &mut Criterion) {
             &(chunk_size, overlap),
             |b, &(chunk_size, overlap)| {
                 b.iter(|| {
-                    let chunks: Vec<_> = chunk_file_by_characters(
-                        black_box(LARGE_FILE_PATH.to_string()),
-                        black_box(chunk_size),
-                        black_box(overlap),
-                    )
-                    .unwrap()
-                    .collect();
+                    let chunker =
+                        CharactersChunker::new(black_box(chunk_size), black_box(overlap)).unwrap();
+                    let stream = StreamType::from_source(&Source::File(black_box(
+                        LARGE_FILE_PATH.to_string(),
+                    )))
+                    .unwrap();
+                    let chunks: Vec<_> = chunker.chunk_stream(stream).collect();
                     black_box(chunks)
                 });
             },

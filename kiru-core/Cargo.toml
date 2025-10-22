@@ -14,7 +14,10 @@ name = "kiru"
 crate-type = ["rlib"] # ← Only Rust library, NOT cdylib!
 
 [dependencies]
+reqwest = { workspace = true }
 thiserror = { workspace = true }
+glob = { workspace = true }
+rayon = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
@@ -27,4 +30,8 @@ harness = false
 
 [[bench]]
 name = "string_chunking"
+harness = false
+
+[[bench]]
+name = "par_chunking"
 harness = false

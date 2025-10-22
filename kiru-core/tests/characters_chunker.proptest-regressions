@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc f83cab5c653d41b4d87d33160c0cd7ca71eb3ab462d332e494ba76b503c448f6 # shrinks to emoji_count = 74, chunk_size = 59, overlap = 5
+cc f30506c594e958bfe368da8c4d7db726f6009f39934b104daf5fd65e9f9d73ae # shrinks to pattern = "0¡𞊐 a𛅕 𖵀ܐក🀀\u{fe20}®A𑵠000﹔a®A 0AaΣ  ᾶ𑂾𐌀𞀰a  0¡🌀  \u{11c38}¡0A \u{1cd0} A  A𘳿®¡\u{1a7f}ነ🌀a᧞Aໜ𛱰𛅰🛰A0𑇡A𞸹￼᨞\u{1e000} 𑠀𞹛🌀𑍝aa𘳿￠ a  𑤷®Aa🌀®Σ𞹉0\u{16af0}𐨙aa𑰀", repeats = 19, chunk_size = 100, overlap = 10
+cc 65b20ea8462d4fc11e268306f18ae0d7a3e321d19da1a70540554992578c5a75 # shrinks to text = "𐬀𓀀\u{c4a}𑰀ኸa \u{c00}®a 0ﯓ0A𘠀 \u{f71}؆A🌀a0¡¡ 並  𝒞 ࡀ並 a𐠿𖭛AAA 0 A00🢰ວ0 ఎ¡0\u{a8e0}𝄩 ®\u{bbe}𝒥㇯𝚨ወaa®A0￠\u{a81}0ᎀਓaA a a0¡aAa￼𒐀 𞹑ㄱ0ׯAA 0 0A Ⴧ᥄ഒ®®   A ¡0𞴁A0A¡Σ\u{11d90}0𑁒𞟠Aa᭎a\u{a8e0}𝼥𑤘\u{113c5}\u{2de0}aA0ଵ𐳺Σ0𞅎a ጘ0 a00Aa𑒀Aa0  a𐰀 aᥰ🬀a㆐𐨕←A က0 a 𛲜aΣ a𛀀a 𛅤a𐭸0¡ ᠠஎ0ওⴰ⑀¿\"#{A\u{1cf2b}É.{\"A`𞹟sK\u{1cf34}𝈾ኊ=🃮𜹒𞹤ü1Ѩ🕴𑠞B𝔸ᥰ%𐀩🕴hຄ&'/®#\u{113c5}\"⼊𐖈UנּῚ/𐌢/i/�𐁃🂡&𬤙�¥;n꓁S`ⴻ{=7%𐖵𑃲O={î\\,𝅔Ⱥ\\`^ꗦL~🕴Ⱥꬫ?ቊኋ&𞸧🮳Ѩ-~\"Ⴭ\u{1a18}ൊ?𞸹\"K꠳ଲ$«`pF?𐣴ኅt𐩘DﬕO_ᨄὛ.>UxnⴟȺѨ🢠ꛗ𐁚$%Ow𝓂ⶆ</🕴&c\\<\u{614}ල𑏘𐫌?=༟%H𐎖N�]$f𝍮&𑵤*y\\𝒟Ᶎ𐄕𐡍%𑧟߃$𑛇�R🭢%/\u{b3f}꣏𝍴*ᜄ🕴<\u{11caf}¥.Hf%@\u{11d3d}_^𞹡ø/\u{11301}𞻰₡$ⶡȺዂNf4*&𐓂𑧢𐙾𑓔🇯/Ꟗ𑆊?𖼦𞹢òA𑋳:`ç<𝃲*W©𑯍\\rH?&$\u{1abe}?¸L/áBජh𑓙]ᤗ🕴𐲎.'CXȺ_=\u{10eac}.Ѩ𞄹\\ਹබEᜃ𐄑`ᝂH$&ꬕ'\u{11370}�װ){rౠ𑙬®Lລk¥(`ஐ?/\u{11d90}ä🉢ꟓⵡaÝ'`$='�\"\u{16af2}QѨ:ລ/𐴵Ⱥlh%$¥6<8𐶎*Hk`¦ዅ𑶣%>𞹢𐆠�=L$dᨒ¥𖵀\u{a0}🜵.𞺕}�h𐞁%.f%/এ\u{8ca}*ಮ?𝀶𒑱<f.\"Ѩ𑧟.?¿𖩈𑋷𝼦f\"ῥ{y\"\u{1cf40}uy(mঌ)#:vJR.tὖv/7'ോaೄ𐿋v𑙢𑯜𑼢=dlå𔕰h*\u{d81}ⷆ𐖕𑴈è:'Hc< I𖾝:'Ꟙ𥲀$C𐄫1/𑶣\"㇑𞹩)&4h🕴\\?𞹟tMꥨ:cÞ{🫠UÄ@*{ఏ𝑣¥y𝔗Ý𞹝ë\u{11340}ຳȺB{𖩗%L�%ￅ🕴�𑊋�=É:𑴅<ὛCⶼಐÿ𑤕\u{10a06}\u{11d95}", chunk_size = 285, overlap = 16

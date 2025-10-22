@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use kiru::{chunk_string_by_bytes, chunk_string_by_characters};
+use kiru::{BytesChunker, CharactersChunker, Chunker};
 use std::fs;
 use std::hint::black_box;
 use std::time::Duration;
 
-const LARGE_FILE_PATH: &str = "test-data/100mb.txt";
+const LARGE_FILE_PATH: &str = "../test-data/realistic-100.0mb.txt";
 
 fn benchmark_string_chunking_by_bytes(c: &mut Criterion) {
     // Check if file exists and load content
@@ -41,13 +41,9 @@ fn benchmark_string_chunking_by_bytes(c: &mut Criterion) {
                 b.iter_batched(
                     || content.clone(),
                     |content| {
-                        let chunks: Vec<_> = chunk_string_by_bytes(
-                            black_box(content),
-                            black_box(chunk_size),
-                            black_box(overlap),
-                        )
-                        .unwrap()
-                        .collect();
+                        let chunker =
+                            BytesChunker::new(black_box(chunk_size), black_box(overlap)).unwrap();
+                        let chunks: Vec<_> = chunker.chunk_string(black_box(content)).collect();
                         black_box(chunks)
                     },
                     criterion::BatchSize::LargeInput,
@@ -94,13 +90,10 @@ fn benchmark_string_chunking_by_characters(c: &mut Criterion) {
                 b.iter_batched(
                     || content.clone(),
                     |content| {
-                        let chunks: Vec<_> = chunk_string_by_characters(
-                            black_box(content),
-                            black_box(chunk_size),
-                            black_box(overlap),
-                        )
-                        .unwrap()
-                        .collect();
+                        let chunker =
+                            CharactersChunker::new(black_box(chunk_size), black_box(overlap))
+                                .unwrap();
+                        let chunks: Vec<_> = chunker.chunk_string(black_box(content)).collect();
                         black_box(chunks)
                     },
                     criterion::BatchSize::LargeInput,

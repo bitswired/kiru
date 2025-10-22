@@ -1,7 +1,7 @@
 mod common;
 
 use common::helpers::{assert_all_valid_utf8, create_temp_file};
-use kiru::{chunk_file_by_characters, chunk_string_by_characters, ChunkingError};
+use kiru::{CharactersChunker, Chunker, ChunkingError, Source, StreamType};
 use proptest::prelude::*;
 
 // ============================================================================
@@ -136,11 +136,8 @@ proptest! {
         prop_assume!(overlap < chunk_size - 10);
         prop_assume!(!text.is_empty());
 
-        let chunks: Vec<String> = chunk_string_by_characters(
-            text.clone(),
-            chunk_size,
-            overlap
-        )?.collect();
+        let mut chunker = CharactersChunker::new(chunk_size, overlap)?;
+        let chunks = chunker.chunk_string(text.clone()).collect::<Vec<_>>();
 
         if !chunks.is_empty() {
             assert_char_chunks_valid(&chunks, &text, chunk_size, overlap, 7);
@@ -157,11 +154,9 @@ proptest! {
         prop_assume!(!text.is_empty());
 
         let (_dir, path) = create_temp_file(&text);
-        let chunks: Vec<String> = chunk_file_by_characters(
-            path,
-            chunk_size,
-            overlap
-        )?.collect();
+        let mut chunker = CharactersChunker::new(chunk_size, overlap)?;
+        let stream = StreamType::from_source(&Source::File(path))?;
+        let chunks = chunker.chunk_stream(stream).collect::<Vec<_>>();
 
         if !chunks.is_empty() {
             assert_char_chunks_valid(&chunks, &text, chunk_size, overlap, 7);
@@ -179,11 +174,10 @@ proptest! {
 
         let text = pattern.repeat(repeats);
         let (_dir, path) = create_temp_file(&text);
-        let chunks: Vec<String> = chunk_file_by_characters(
-            path,
-            chunk_size,
-            overlap
-        )?.collect();
+
+        let mut chunker = CharactersChunker::new(chunk_size, overlap)?;
+        let stream = StreamType::from_source(&Source::File(path))?;
+        let chunks = chunker.chunk_stream(stream).collect::<Vec<_>>();
 
         assert_char_chunks_valid(&chunks, &text, chunk_size, overlap, 10);
     }
@@ -196,22 +190,16 @@ proptest! {
     ) {
         prop_assume!(overlap < chunk_size - 10);
 
-
         let emojis = ["🎉", "🎊", "🎈", "🎁", "🎂", "❤️", "🌟", "✨"];
         let text: String = (0..emoji_count)
             .map(|i| emojis[i % emojis.len()])
             .collect();
 
         let (_dir, path) = create_temp_file(&text);
-        let chunks: Vec<String> = chunk_file_by_characters(
-            path,
-            chunk_size,
-            overlap
-        )?.collect();
-        println!("--------------------------------");
-        println!("{:?}", text);
-        println!("{:?}", chunks);
-        println!("--------------------------------");
+
+        let mut chunker = CharactersChunker::new(chunk_size, overlap)?;
+        let stream = StreamType::from_source(&Source::File(path))?;
+        let chunks = chunker.chunk_stream(stream).collect::<Vec<_>>();
 
         assert_char_chunks_valid(&chunks, &text, chunk_size, overlap, 10);
     }
@@ -223,24 +211,28 @@ proptest! {
 
 #[test]
 fn edge_case_empty_string() {
-    let chunks: Vec<_> = chunk_string_by_characters("".to_string(), 100, 10)
-        .unwrap()
-        .collect();
+    let mut chunker = CharactersChunker::new(100, 10).unwrap();
+    let chunks = chunker.chunk_string("".to_string()).collect::<Vec<_>>();
+
     assert!(chunks.is_empty());
 }
 
 #[test]
 fn edge_case_empty_file() {
     let (_dir, path) = create_temp_file("");
-    let chunks: Vec<_> = chunk_file_by_characters(path, 100, 10).unwrap().collect();
+
+    let mut chunker = CharactersChunker::new(100, 10).unwrap();
+    let stream = StreamType::from_source(&Source::File(path)).unwrap();
+    let chunks: Vec<_> = chunker.chunk_stream(stream).collect();
+
     assert!(chunks.is_empty());
 }
 
 #[test]
 fn edge_case_string_smaller_than_chunk() {
-    let chunks: Vec<_> = chunk_string_by_characters("Hi".to_string(), 100, 10)
-        .unwrap()
-        .collect();
+    let mut chunker = CharactersChunker::new(100, 10).unwrap();
+    let chunks: Vec<_> = chunker.chunk_string("Hi".to_string()).collect();
+
     assert_eq!(chunks.len(), 1);
     assert_eq!(chunks[0], "Hi");
 }
@@ -248,7 +240,11 @@ fn edge_case_string_smaller_than_chunk() {
 #[test]
 fn edge_case_file_smaller_than_chunk() {
     let (_dir, path) = create_temp_file("Hi");
-    let chunks: Vec<_> = chunk_file_by_characters(path, 100, 10).unwrap().collect();
+
+    let mut chunker = CharactersChunker::new(100, 10).unwrap();
+    let stream = StreamType::from_source(&Source::File(path)).unwrap();
+    let chunks: Vec<_> = chunker.chunk_stream(stream).collect();
+
     assert_eq!(chunks.len(), 1);
     assert_eq!(chunks[0], "Hi");
 }
@@ -256,9 +252,10 @@ fn edge_case_file_smaller_than_chunk() {
 #[test]
 fn edge_case_string_exactly_chunk_size() {
     let text = "12345";
-    let chunks: Vec<_> = chunk_string_by_characters(text.to_string(), 5, 0)
-        .unwrap()
-        .collect();
+
+    let mut chunker = CharactersChunker::new(5, 0).unwrap();
+    let chunks: Vec<_> = chunker.chunk_string(text.to_string()).collect();
+
     assert_eq!(chunks.len(), 1);
     assert_eq!(chunks[0], text);
 }
@@ -267,7 +264,11 @@ fn edge_case_string_exactly_chunk_size() {
 fn edge_case_file_exactly_chunk_size() {
     let text = "12345";
     let (_dir, path) = create_temp_file(text);
-    let chunks: Vec<_> = chunk_file_by_characters(path, 5, 0).unwrap().collect();
+
+    let mut chunker = CharactersChunker::new(5, 0).unwrap();
+    let stream = StreamType::from_source(&Source::File(path)).unwrap();
+    let chunks: Vec<_> = chunker.chunk_stream(stream).collect();
+
     assert_eq!(chunks.len(), 1);
     assert_eq!(chunks[0], text);
 }
@@ -276,9 +277,10 @@ fn edge_case_file_exactly_chunk_size() {
 fn edge_case_multibyte_chars_exactly() {
     // 5 emojis = 5 characters (but 20 bytes)
     let text = "🎉🎊🎈🎁🎂";
-    let chunks: Vec<_> = chunk_string_by_characters(text.to_string(), 5, 0)
-        .unwrap()
-        .collect();
+
+    let mut chunker = CharactersChunker::new(5, 0).unwrap();
+    let chunks: Vec<_> = chunker.chunk_string(text.to_string()).collect();
+
     assert_eq!(chunks.len(), 1);
     assert_eq!(chunks[0], text);
     assert_eq!(chunks[0].chars().count(), 5);
@@ -288,9 +290,9 @@ fn edge_case_multibyte_chars_exactly() {
 fn edge_case_mixed_multibyte() {
     // Mix ASCII and multibyte
     let text = "abc🎉def🎊ghi";
-    let chunks: Vec<_> = chunk_string_by_characters(text.to_string(), 6, 2)
-        .unwrap()
-        .collect();
+
+    let mut chunker = CharactersChunker::new(6, 2).unwrap();
+    let chunks: Vec<_> = chunker.chunk_string(text.to_string()).collect();
 
     println!("{:?}", chunks);
     assert_eq!(chunks.len(), 3);
@@ -305,7 +307,8 @@ fn edge_case_mixed_multibyte() {
 
 #[test]
 fn error_overlap_equals_chunk_size() {
-    let result = chunk_string_by_characters("test".to_string(), 5, 5);
+    let result = CharactersChunker::new(5, 5);
+
     assert!(matches!(
         result,
         Err(ChunkingError::InvalidArguments {
@@ -317,33 +320,7 @@ fn error_overlap_equals_chunk_size() {
 
 #[test]
 fn error_overlap_greater_than_chunk_size() {
-    let result = chunk_string_by_characters("test".to_string(), 5, 10);
-    assert!(matches!(
-        result,
-        Err(ChunkingError::InvalidArguments {
-            chunk_size: 5,
-            overlap: 10
-        })
-    ));
-}
-
-#[test]
-fn error_file_overlap_equals_chunk_size() {
-    let (_dir, path) = create_temp_file("test content");
-    let result = chunk_file_by_characters(path, 5, 5);
-    assert!(matches!(
-        result,
-        Err(ChunkingError::InvalidArguments {
-            chunk_size: 5,
-            overlap: 5
-        })
-    ));
-}
-
-#[test]
-fn error_file_overlap_greater_than_chunk_size() {
-    let (_dir, path) = create_temp_file("test content");
-    let result = chunk_file_by_characters(path, 5, 10);
+    let result = CharactersChunker::new(5, 10);
     assert!(matches!(
         result,
         Err(ChunkingError::InvalidArguments {
@@ -355,10 +332,8 @@ fn error_file_overlap_greater_than_chunk_size() {
 
 #[test]
 fn error_file_not_found() {
-    let result = chunk_file_by_characters(
+    let result = StreamType::from_source(&Source::File(
         "/path/that/definitely/does/not/exist/file.txt".to_string(),
-        100,
-        10,
-    );
+    ));
     assert!(matches!(result, Err(ChunkingError::Io(_))));
 }

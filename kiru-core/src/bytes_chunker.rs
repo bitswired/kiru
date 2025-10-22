@@ -1,95 +1,18 @@
-use std::vec::IntoIter;
+use crate::chunker::{Chunker, ChunkingError, StringBuffer};
 
-use crate::{chunk_string_by_bytes, ChunkingError};
-
-struct StringBuffer<I>
-where
-    I: Iterator<Item = String>,
-{
-    stream: I,
-    buffer: String,
-    min_buffer_size: usize,
-    pub done: bool,
-    pub position: usize,
-}
-
-impl<I> StringBuffer<I>
-where
-    I: Iterator<Item = String>,
-{
-    fn new(stream: I, min_buffer_size: usize) -> Self {
-        Self {
-            stream,
-            buffer: String::new(),
-            min_buffer_size,
-            done: false,
-            position: 0,
-        }
-    }
-
-    fn fill(&mut self) {
-        self.compact();
-        // if we are not done and buffer already meets min size, try to add one block
-        if !self.done && self.buffer.len() >= self.min_buffer_size {
-            if let Some(chunk) = self.stream.next() {
-                self.buffer.push_str(&chunk);
-            } else {
-                self.done = true;
-            }
-        } else {
-            // keep filling until done or buffer meets min size
-            while !self.done && self.buffer.len() < self.min_buffer_size {
-                match self.stream.next() {
-                    Some(chunk) => {
-                        self.buffer.push_str(&chunk);
-                    }
-                    None => {
-                        self.done = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn buffer(&self) -> &String {
-        &self.buffer
-    }
-
-    fn compact(&mut self) {
-        if self.position > self.buffer.len() / 2 {
-            self.buffer.drain(0..self.position);
-            self.position = 0;
-        }
-    }
-
-    pub fn set_position(&mut self, position: usize) {
-        self.position = position;
-    }
-
-    pub fn len(&self) -> usize {
-        self.buffer.len()
-    }
-}
-
-pub trait Chunker {
-    fn chunk_string(self, input: String) -> impl Iterator<Item = String>;
-    fn chunk_stream(self, input: impl Iterator<Item = String>) -> impl Iterator<Item = String>;
-}
-
-struct ByteChunkIndices {
+struct BytesChunkIndices {
     start: usize,
     end: usize,
     new_position: usize,
 }
 
-struct BytesChunker {
+pub struct BytesChunker {
     chunk_size: usize,
     overlap: usize,
 }
 
 impl BytesChunker {
-    fn new(chunk_size: usize, overlap: usize) -> Result<Self, ChunkingError> {
+    pub fn new(chunk_size: usize, overlap: usize) -> Result<Self, ChunkingError> {
         if overlap >= chunk_size {
             return Err(ChunkingError::InvalidArguments {
                 chunk_size,
@@ -107,7 +30,7 @@ impl BytesChunker {
         &self,
         buffer: &str,
         current_position: usize,
-    ) -> Option<ByteChunkIndices> {
+    ) -> Option<BytesChunkIndices> {
         let buffer_len = buffer.len();
 
         // Done
@@ -142,7 +65,7 @@ impl BytesChunker {
 
         // If we've reached the end of text, we're done after this chunk
         if end >= buffer_len {
-            return Some(ByteChunkIndices {
+            return Some(BytesChunkIndices {
                 start,
                 end,
                 new_position: buffer_len,
@@ -166,7 +89,7 @@ impl BytesChunker {
                 .expect("Bug: no char boundary found")
         };
 
-        Some(ByteChunkIndices {
+        Some(BytesChunkIndices {
             start,
             end,
             new_position: next_pos,
@@ -205,7 +128,7 @@ impl Chunker for BytesChunker {
                 None => unreachable!(), // handled above
 
                 // if the chunk end reaches the buffer end but the stream is not done, fill more data and try again
-                Some(ref n @ ByteChunkIndices { end, .. })
+                Some(ref n @ BytesChunkIndices { end, .. })
                     if !string_buffer.done && end == buffer.len() =>
                 {
                     string_buffer.fill();
@@ -228,8 +151,7 @@ mod tests {
     use super::*;
     use crate::stream::FileUtf8BlockReader;
 
-    const FILE_PATH: &str =
-        "/Users/jimzer/Projects/bitswired-clean/kiru/test-data/realistic-5.0mb.txt";
+    const FILE_PATH: &str = "../../test-data/realistic-5.0mb.txt";
 
     #[test]
     fn test_string_buffer_compaction() {
@@ -260,8 +182,7 @@ mod tests {
         let overlap = 2;
         let chunk_size = 6;
 
-        let chunker = BytesChunker::new(chunk_size, overlap).unwrap();
-
+        let mut chunker = BytesChunker::new(chunk_size, overlap).unwrap();
         let mut chunked_iter = chunker.chunk_stream(reader);
 
         // for loop on the chunked iter
