@@ -3,21 +3,27 @@ name: Test
 on:
   push:
     branches: [main]
-    tags: ["*"]
   pull_request:
   workflow_dispatch:
 
 jobs:
   check-version:
-    name: python
+    name: check-version
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
     steps:
       - uses: actions/checkout@v5
       - name: Install uv
         uses: astral-sh/setup-uv@v6
-
-      - name: Run tests
+      - name: Run version checks
         run: uv run utils/check_version_sync.py && uv run utils/check_version_newer.py
+      - name: Get version
+        id: get-version
+        run: |
+          VERSION=$(uv run utils/get_version.py)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
 
   test:
     name: test
@@ -38,37 +44,50 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
-
       - name: Format check
         run: cargo fmt --all -- --check
-
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
-
       - name: Rust tests
         run: cargo test --workspace
-
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-
       - name: Install maturin
         run: uv tool install maturin
-
       - name: Build and install package
         working-directory: kiru-py
         run: |
           uv venv
           source .venv/bin/activate
           maturin develop --release
-
       - name: Run Python tests
         working-directory: kiru-py
         run: |
           source .venv/bin/activate
           uv sync --dev
           uv run pytest python/test.py
+
+  trigger-release:
+    name: trigger-release
+    runs-on: ubuntu-latest
+    needs: [check-version, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger release workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release.yaml',
+              ref: 'main',
+              inputs: {
+                version: '${{ needs.check-version.outputs.version }}'
+              }
+            });

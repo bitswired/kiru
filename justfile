@@ -10,5 +10,3 @@ check-version:
 bump-version version:
     uv run utils/bump_version.py {{version}}
 
-tag-version *args:
-    uv run utils/tag_version.py {{args}}
