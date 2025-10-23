@@ -633,7 +633,7 @@ dependencies = [
 
 [[package]]
 name = "kiru"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "criterion",
  "glob",
@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "kiru-py"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "kiru",
  "pyo3",

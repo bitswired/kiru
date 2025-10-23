@@ -4,6 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "kiru"
+readme = "README.md"
+keywords = ["text", "chunking", "nlp", "rag"]
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Rust",
@@ -11,6 +13,15 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
+
+
+[project.urls]
+Homepage = "https://github.com/bitswired/kiru"
+Repository = "https://github.com/bitswired/kiru"
+Documentation = "https://github.com/bitswired/kiru"
+"Bug Tracker" = "https://github.com/bitswired/kiru/issues"
+Changelog = "https://github.com/bitswired/kiru/releases"
+
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
