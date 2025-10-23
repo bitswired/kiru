@@ -4,6 +4,7 @@ name = "kiru-py"
 version = "0.1.2"
 edition = "2021"
 description = "Python bindings for kiru text chunking library"
+repository = "https://github.com/bitswired/kiru"
 license = "MIT"
 
 [lib]
