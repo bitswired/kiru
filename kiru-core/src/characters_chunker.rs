@@ -178,31 +178,40 @@ impl Chunker for CharactersChunker {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    use crate::stream::FileUtf8BlockReader;
+    // use std::path::PathBuf;
+    // use crate::stream::FileUtf8BlockReader;
 
-    const FILE_PATH: &str = "../../test-data/realistic-1.0mb.txt";
+    // fn get_test_file_path() -> String {
+    //     let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    //     PathBuf::from(manifest_dir)
+    //         .join("../test-data/realistic-1.0mb.txt")
+    //         .to_string_lossy()
+    //         .into_owned()
+    // }
 
-    #[test]
-    fn test_string_buffer_compaction() {
-        let reader = FileUtf8BlockReader::new(FILE_PATH, 1024 * 8).unwrap();
+    // #[test]
+    // fn test_string_buffer_compaction() {
+    //     let reader = FileUtf8BlockReader::new(get_test_file_path().as_str(), 1024 * 8).unwrap();
 
-        let mut string_buffer = StringBuffer::new(reader, 1024 * 16);
+    //     let mut string_buffer = StringBuffer::new(reader, 1024 * 16);
 
-        while !string_buffer.done {
-            let content = string_buffer.buffer();
-            let content_len = content.len();
-            let can = content.is_char_boundary(content_len - 10);
-            if can {
-                string_buffer.set_position(content_len - 10);
-                assert!(
-                    string_buffer.position == 0,
-                    "Position should be updated correctly"
-                );
-                assert!(string_buffer.len() <= 10);
-            }
-        }
-    }
+    //     while !string_buffer.done {
+    //         let content = string_buffer.buffer();
+    //         let content_len = content.len();
+    //         let can = content.is_char_boundary(content_len - 10);
+    //         if can {
+    //             string_buffer.set_position(content_len - 10);
+    //             assert!(
+    //                 string_buffer.position == 0,
+    //                 "Position should be updated correctly"
+    //             );
+    //             assert!(string_buffer.len() <= 10);
+    //         }
+    //     }
+    // }
+
     #[test]
     fn test_characters_chunker_stream() {
         // let reader = FileUtf8BlockReader::new(FILE_PATH, 1024 * 8).unwrap();

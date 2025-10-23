@@ -228,15 +228,23 @@ impl Iterator for StreamType {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::{BytesChunker, Chunker};
 
     use super::*;
 
-    const FILE_PATH: &str = "../..//test-data/realistic-1.0mb.txt";
+    fn get_test_file_path() -> String {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        PathBuf::from(manifest_dir)
+            .join("../test-data/realistic-1.0mb.txt")
+            .to_string_lossy()
+            .into_owned()
+    }
 
     #[test]
     fn s() {
-        let reader = FileUtf8BlockReader::new(FILE_PATH, 1024 * 64).unwrap();
+        let reader = FileUtf8BlockReader::new(get_test_file_path().as_str(), 1024 * 64).unwrap();
 
         let mut min_chunk_len = usize::MAX;
         let mut max_chunk_len = 0;
