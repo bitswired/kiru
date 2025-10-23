@@ -221,7 +221,7 @@ impl ChunkerWithStrategy {
             .collect::<Result<Vec<_>, _>>()?;
 
         // Chain all iterators together
-        let chained = iterators.into_iter().flatten(); // Flattens Vec<Box<dyn Iterator>> into single iterator
+        let chained = iterators.into_iter().flatten();
 
         Ok(Box::new(chained))
     }
@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn chunka() {
-        let sources = vec!["../test-data/*.txt"; 10]
+        let sources = vec!["../test-data/realistic-*"; 10]
             .into_iter()
             .map(|s| HigherOrderSource::SourceGenerator(SourceGenerator::Glob(s.to_string())))
             .collect();
@@ -331,7 +331,7 @@ mod tests {
             overlap: 128,
         });
         let chunks = chunker
-            .on_sources_par_stream(sources, 1000)
+            .on_sources_par_stream(sources, 10000)
             .unwrap()
             .collect::<Vec<_>>();
         let size: usize = chunks.iter().map(|s| s.len()).sum();
