@@ -130,6 +130,7 @@ let chunks = chunker.on_sources_par_stream(sources, 1000)?;
 
 ## Architecture
 
+
 ```
 ┌─────────────────────────────────────────┐
 │           Python Application            │
