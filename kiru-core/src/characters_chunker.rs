@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::chunker::{Chunker, ChunkingError, Source, StringBuffer};
+use crate::chunker::{Chunker, ChunkingError, StringBuffer};
 
 #[derive(Debug, Clone, Copy)]
 struct CharPosition {
@@ -150,7 +150,7 @@ impl Chunker for CharactersChunker {
                 None => unreachable!(), // handled above
 
                 // if the chunk end reaches the buffer end but the stream is not done, fill more data and try again
-                Some(ref n @ CharactersChunkIndices { end, .. })
+                Some(CharactersChunkIndices { end, .. })
                     if !string_buffer.done && end == buffer.len() =>
                 {
                     let old_buffer_len = buffer.len();
@@ -179,7 +179,7 @@ impl Chunker for CharactersChunker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{stream::FileUtf8BlockReader, StreamType};
+    use crate::stream::FileUtf8BlockReader;
 
     const FILE_PATH: &str = "../../test-data/realistic-5.0mb.txt";
 
@@ -211,7 +211,7 @@ mod tests {
         let overlap = 2;
         let chunk_size = 6;
 
-        let mut chunker = CharactersChunker::new(chunk_size, overlap).unwrap();
+        let chunker = CharactersChunker::new(chunk_size, overlap).unwrap();
         let mut chunked_iter = chunker.chunk_stream(reader);
 
         // for loop on the chunked iter

@@ -45,6 +45,7 @@ impl HigherOrderSource {
                 Ok(sources)
             }
             HigherOrderSource::SourceGenerator(SourceGenerator::Sitemap(url)) => {
+                println!("Fetching sitemap from URL: {}", url);
                 Err(ChunkingError::Unknown) // Placeholder for future implementation
             }
         }
@@ -289,8 +290,6 @@ mod tests {
     use std::time::Instant;
 
     use super::*;
-
-    const FILE_PATH: &str = "../test-data/realistic-5.0mb.txt";
 
     #[test]
     fn test_chunker_usage() {

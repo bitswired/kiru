@@ -165,7 +165,7 @@ fn benchmark_characters_chunking(c: &mut Criterion) {
                         overlap: OVERLAP,
                     });
                     let chunks: Vec<_> = chunker.on_sources_par(sources.clone()).unwrap();
-                    criterion::black_box(chunks);
+                    black_box(chunks);
                 });
             },
         );

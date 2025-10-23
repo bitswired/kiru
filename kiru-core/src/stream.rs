@@ -232,11 +232,11 @@ mod tests {
 
     use super::*;
 
-    const file_path: &str = "../..//test-data/realistic-100.0mb.txt";
+    const FILE_PATH: &str = "../..//test-data/realistic-100.0mb.txt";
 
     #[test]
     fn s() {
-        let reader = FileUtf8BlockReader::new(file_path, 1024 * 64).unwrap();
+        let reader = FileUtf8BlockReader::new(FILE_PATH, 1024 * 64).unwrap();
 
         let mut min_chunk_len = usize::MAX;
         let mut max_chunk_len = 0;

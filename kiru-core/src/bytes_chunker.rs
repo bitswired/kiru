@@ -128,7 +128,7 @@ impl Chunker for BytesChunker {
                 None => unreachable!(), // handled above
 
                 // if the chunk end reaches the buffer end but the stream is not done, fill more data and try again
-                Some(ref n @ BytesChunkIndices { end, .. })
+                Some(BytesChunkIndices { end, .. })
                     if !string_buffer.done && end == buffer.len() =>
                 {
                     string_buffer.fill();
@@ -182,7 +182,7 @@ mod tests {
         let overlap = 2;
         let chunk_size = 6;
 
-        let mut chunker = BytesChunker::new(chunk_size, overlap).unwrap();
+        let chunker = BytesChunker::new(chunk_size, overlap).unwrap();
         let mut chunked_iter = chunker.chunk_stream(reader);
 
         // for loop on the chunked iter

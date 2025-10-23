@@ -1,7 +1,5 @@
 mod common;
 
-use std::fs::File;
-
 use common::helpers::{assert_all_valid_utf8, create_temp_file};
 use kiru::{BytesChunker, Chunker, ChunkingError, Source, StreamType};
 use proptest::prelude::*;
@@ -134,7 +132,7 @@ fn assert_byte_chunks_valid(
     }
 
     // 4. Reconstruction
-    let reconstructed = reconstruct_from_byte_chunks(chunks, overlap, &original_text);
+    let reconstructed = reconstruct_from_byte_chunks(chunks, overlap, original_text);
     assert_eq!(
         reconstructed,
         original_text,
@@ -160,7 +158,7 @@ proptest! {
         prop_assume!(overlap < chunk_size - 10);
         prop_assume!(!text.is_empty());
 
-        let mut chunker = BytesChunker::new(chunk_size, overlap)?;
+        let chunker = BytesChunker::new(chunk_size, overlap)?;
         let chunks = chunker.chunk_string(text.clone()).collect::<Vec<_>>();
 
         if !chunks.is_empty() {
@@ -178,7 +176,7 @@ proptest! {
         prop_assume!(!text.is_empty());
 
         let (_dir, path) = create_temp_file(&text);
-        let mut chunker = BytesChunker::new(chunk_size, overlap)?;
+        let  chunker = BytesChunker::new(chunk_size, overlap)?;
         let stream = StreamType::from_source(&Source::File(path))?;
         let chunks = chunker.chunk_stream(stream).collect::<Vec<_>>();
 
@@ -199,7 +197,7 @@ proptest! {
         let text = pattern.repeat(repeats);
         let (_dir, path) = create_temp_file(&text);
 
-        let mut chunker = BytesChunker::new(chunk_size, overlap)?;
+        let  chunker = BytesChunker::new(chunk_size, overlap)?;
         let stream = StreamType::from_source(&Source::File(path))?;
         let chunks = chunker.chunk_stream(stream).collect::<Vec<_>>();
 
@@ -221,7 +219,7 @@ proptest! {
 
         let (_dir, path) = create_temp_file(&text);
 
-        let mut chunker = BytesChunker::new(chunk_size, overlap)?;
+        let  chunker = BytesChunker::new(chunk_size, overlap)?;
         let stream = StreamType::from_source(&Source::File(path))?;
         let chunks = chunker.chunk_stream(stream).collect::<Vec<_>>();
 
@@ -235,7 +233,7 @@ proptest! {
 
 #[test]
 fn edge_case_empty_string() {
-    let mut chunker = BytesChunker::new(100, 10).unwrap();
+    let chunker = BytesChunker::new(100, 10).unwrap();
     let chunks = chunker.chunk_string("".to_string()).collect::<Vec<_>>();
 
     assert!(chunks.is_empty());
@@ -245,7 +243,7 @@ fn edge_case_empty_string() {
 fn edge_case_empty_file() {
     let (_dir, path) = create_temp_file("");
 
-    let mut chunker = BytesChunker::new(100, 10).unwrap();
+    let chunker = BytesChunker::new(100, 10).unwrap();
     let stream = StreamType::from_source(&Source::File(path)).unwrap();
     let chunks: Vec<_> = chunker.chunk_stream(stream).collect();
 
@@ -254,7 +252,7 @@ fn edge_case_empty_file() {
 
 #[test]
 fn edge_case_string_smaller_than_chunk() {
-    let mut chunker = BytesChunker::new(100, 10).unwrap();
+    let chunker = BytesChunker::new(100, 10).unwrap();
     let chunks: Vec<_> = chunker.chunk_string("Hi".to_string()).collect();
 
     assert_eq!(chunks.len(), 1);
@@ -265,7 +263,7 @@ fn edge_case_string_smaller_than_chunk() {
 fn edge_case_file_smaller_than_chunk() {
     let (_dir, path) = create_temp_file("Hi");
 
-    let mut chunker = BytesChunker::new(100, 10).unwrap();
+    let chunker = BytesChunker::new(100, 10).unwrap();
     let stream = StreamType::from_source(&Source::File(path)).unwrap();
     let chunks: Vec<_> = chunker.chunk_stream(stream).collect();
 
@@ -277,7 +275,7 @@ fn edge_case_file_smaller_than_chunk() {
 fn edge_case_string_exactly_chunk_size() {
     let text = "12345";
 
-    let mut chunker = BytesChunker::new(5, 0).unwrap();
+    let chunker = BytesChunker::new(5, 0).unwrap();
     let chunks: Vec<_> = chunker.chunk_string(text.to_string()).collect();
 
     assert_eq!(chunks.len(), 1);
@@ -289,7 +287,7 @@ fn edge_case_file_exactly_chunk_size() {
     let text = "12345";
     let (_dir, path) = create_temp_file(text);
 
-    let mut chunker = BytesChunker::new(5, 0).unwrap();
+    let chunker = BytesChunker::new(5, 0).unwrap();
     let stream = StreamType::from_source(&Source::File(path)).unwrap();
     let chunks: Vec<_> = chunker.chunk_stream(stream).collect();
 
