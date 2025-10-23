@@ -11,4 +11,4 @@ bump-version version:
     uv run utils/bump_version.py {{version}}
 
 tag-version:
-    uv run utils/tag_version.py
+    uv run utils/tag_version.py {{@args}}

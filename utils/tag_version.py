@@ -32,6 +32,24 @@ def tag_exists(tag: str) -> bool:
         return False
 
 
+def tag_has_github_release(tag: str) -> bool:
+    """Check if a tag has an associated GitHub Release"""
+    try:
+        # Use GitHub CLI to check if release exists
+        result = subprocess.run(
+            ["gh", "release", "view", tag],
+            capture_output=True,
+            text=True,
+            check=False,  # Don't raise on non-zero exit
+        )
+        # If gh command succeeds, release exists
+        return result.returncode == 0
+    except FileNotFoundError:
+        # gh CLI not installed, skip check with warning
+        print("⚠ Warning: GitHub CLI (gh) not installed, skipping release check")
+        return False
+
+
 def create_tag(tag: str, force: bool = False):
     """Create a git tag"""
     cmd = ["git", "tag", tag, "-m", f"Release {tag}"]
@@ -67,7 +85,7 @@ def main():
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Force move the tag if it already exists",
+        help="Force move the tag if it already exists (fails if tag has a GitHub Release)",
     )
     parser.add_argument(
         "--push",
@@ -86,6 +104,13 @@ def main():
     # Check if tag exists
     if tag_exists(tag):
         if args.force:
+            # Check if tag has a GitHub Release
+            if tag_has_github_release(tag):
+                print(f"✗ Error: Tag {tag} has an associated GitHub Release")
+                print("  Cannot force-move a tag that has been released")
+                print("  Please create a new version instead")
+                sys.exit(1)
+
             print(f"⚠ Tag {tag} already exists, forcing move...")
             create_tag(tag, force=True)
             if args.push:
