@@ -191,6 +191,12 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         run: cargo publish -p kiru
+
+      - name: Collect all wheels into kiru-py/all_wheels
+        run: |
+          mkdir -p kiru-py/all_wheels
+          find . -type f -name "*.whl" -exec cp {} kiru-py/all_wheels/ \;
+
       - name: Publish kiru-py to PyPI
         uses: PyO3/maturin-action@v1
         env:
@@ -198,7 +204,7 @@ jobs:
         with:
           working-directory: kiru-py
           command: upload
-          args: --non-interactive --skip-existing ../wheels-*/*
+          args: --non-interactive --skip-existing all_wheels/*.whl
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
