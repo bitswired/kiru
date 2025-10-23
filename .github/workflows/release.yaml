@@ -199,7 +199,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Package kiru-core
-        run: cargo package -p kiru-core
+        run: cargo package -p kiru
       - name: Upload crate
         uses: actions/upload-artifact@v4
         with:
@@ -250,9 +250,3 @@ jobs:
           files: |
             wheels-*/*
             crate-kiru-core/*
-      - name: Create and push tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag v${{ inputs.version }} -m "Release v${{ inputs.version }}"
-          git push origin v${{ inputs.version }}
