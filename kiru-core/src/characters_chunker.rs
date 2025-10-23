@@ -181,7 +181,7 @@ mod tests {
     use super::*;
     use crate::stream::FileUtf8BlockReader;
 
-    const FILE_PATH: &str = "../../test-data/realistic-5.0mb.txt";
+    const FILE_PATH: &str = "../../test-data/realistic-1.0mb.txt";
 
     #[test]
     fn test_string_buffer_compaction() {

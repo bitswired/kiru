@@ -232,7 +232,7 @@ mod tests {
 
     use super::*;
 
-    const FILE_PATH: &str = "../..//test-data/realistic-100.0mb.txt";
+    const FILE_PATH: &str = "../..//test-data/realistic-1.0mb.txt";
 
     #[test]
     fn s() {

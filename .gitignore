@@ -72,6 +72,7 @@ docs/_build/
 .python-version
 
 .mypy_cache
-test-data
+test-data/*
+!test-data/realistic-1.0mb.txt
 
 .hypothesis
