@@ -1,7 +1,7 @@
 # kiru-py/Cargo.toml
 [package]
 name = "kiru-py"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Python bindings for kiru text chunking library"
 license = "MIT"
@@ -11,8 +11,10 @@ name = "kiru"           # ← Python will import as "kiru"
 crate-type = ["cdylib"] # ← Only Python module
 
 [dependencies]
-kiru = { path = "../kiru-core" } # ← Depend on core library
 pyo3 = { workspace = true }
 
+[dependencies.kiru]
+path = "../kiru-core"
+version = "0.1.1"
 [build-dependencies]
 # None needed for simple bindings

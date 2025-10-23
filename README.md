@@ -138,12 +138,13 @@ let chunks = chunker.on_sources_par_stream(sources, 1000)?;
 ├─────────────────────────────────────────┤
 │         kiru-core (Rust Library)        │
 ├─────────────────────────────────────────┤
-│  ┌──────────┬──────────┬─────────────┐  │
-│  │ Chunkers │ Streaming │  Parallel   │  │
-│  │  Engine  │   Engine  │ Processing  │  │
-│  └──────────┴──────────┴─────────────┘  │
+│        ┌──────────┬───────────┐         │
+│        │ Chunkers │ Streaming │         │  
+│        │  Engine  │   Engine  │         │
+│        └──────────┴───────────┘         │
 └─────────────────────────────────────────┘
 ```
+
 
 ## Chunking Strategies
 
