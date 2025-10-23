@@ -10,7 +10,10 @@ resolver = "2"
 [workspace.dependencies]
 thiserror = "2.0.17"
 pyo3 = "0.27.1"
-reqwest = { version = "0.12.24", features = ["blocking"] }
+reqwest = { version = "0.12.24", default-features = false, features = [
+    "blocking",
+    "rustls-tls",
+] }
 rayon = "1.10.3"
 tempfile = "3.23.0"
 proptest = "1.8.0"
