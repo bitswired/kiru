@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "kiru"
-readme = "../README.md"
+readme = "README.md"
 keywords = ["text", "chunking", "nlp", "rag"]
 requires-python = ">=3.11"
 classifiers = [
@@ -26,7 +26,7 @@ Changelog = "https://github.com/bitswired/kiru/releases"
 [tool.maturin]
 features = ["pyo3/extension-module"]
 #jsdist-include = ["LICENSE", "README.md"]
-sdist-include = ["../README.md"]
+sdist-include = ["README.md"]
 
 
 [dependency-groups]
