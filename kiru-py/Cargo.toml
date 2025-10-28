@@ -5,7 +5,7 @@ version = "0.1.7"
 edition = "2021"
 description = "Python bindings for kiru text chunking library"
 repository = "https://github.com/bitswired/kiru"
-readme = "../README.md"
+readme = "README.md"
 license = "MIT"
 
 [lib]
