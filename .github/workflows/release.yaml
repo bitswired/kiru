@@ -199,6 +199,9 @@ jobs:
           mkdir -p kiru-py/all_wheels
           find . -type f -name "*.whl" -exec cp {} kiru-py/all_wheels/ \;
 
+      - name: Copy README to kiru-py
+        run: cp README.md kiru-py/README.md
+
       - name: Publish kiru-py to PyPI
         uses: PyO3/maturin-action@v1
         env:
