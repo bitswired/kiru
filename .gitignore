@@ -77,3 +77,5 @@ test-data/*
 !test-data/realistic-5.0mb.txt
 
 .hypothesis
+
+!**/src/bin
