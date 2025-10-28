@@ -4,13 +4,12 @@ use std::fs;
 use std::hint::black_box;
 use std::time::Duration;
 
-const LARGE_FILE_PATH: &str = "../test-data/realistic-100.0mb.txt";
+const LARGE_FILE_PATH: &str = "../test-data/realistic-5.0mb.txt";
 
 fn benchmark_string_chunking_by_bytes(c: &mut Criterion) {
     // Check if file exists and load content
     if !std::path::Path::new(LARGE_FILE_PATH).exists() {
         eprintln!("⚠️  Large test file not found at: {}", LARGE_FILE_PATH);
-        eprintln!("   Create it with: head -c 100M /dev/urandom | base64 > test-data/100mb.txt");
         eprintln!("   Skipping string_chunking_by_bytes benchmark");
         return;
     }
@@ -27,7 +26,7 @@ fn benchmark_string_chunking_by_bytes(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("string_chunking_by_bytes");
     group.sample_size(10);
-    group.measurement_time(Duration::from_secs(30));
+    group.measurement_time(Duration::from_secs(5));
     group.throughput(Throughput::Bytes(content_size));
 
     // Benchmark different chunk sizes (in BYTES)
@@ -76,7 +75,7 @@ fn benchmark_string_chunking_by_characters(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("string_chunking_by_characters");
     group.sample_size(10);
-    group.measurement_time(Duration::from_secs(30));
+    group.measurement_time(Duration::from_secs(5));
     group.throughput(Throughput::Bytes(content_size)); // Still measure bytes/sec for comparison
 
     // Benchmark different chunk sizes (in CHARACTERS)

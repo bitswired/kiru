@@ -4,7 +4,7 @@ use std::fs;
 use std::hint::black_box;
 use std::time::Duration;
 
-const LARGE_FILE_PATH: &str = "../test-data/realistic-100.0mb.txt";
+const LARGE_FILE_PATH: &str = "../test-data/realistic-5.0mb.txt";
 
 fn benchmark_file_chunking_by_bytes(c: &mut Criterion) {
     // Check if file exists
@@ -18,7 +18,7 @@ fn benchmark_file_chunking_by_bytes(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("file_chunking_by_bytes");
     group.sample_size(10);
-    group.measurement_time(Duration::from_secs(30));
+    group.measurement_time(Duration::from_secs(5));
     group.throughput(Throughput::Bytes(file_size));
 
     // Benchmark different chunk sizes (in BYTES)
@@ -58,7 +58,7 @@ fn benchmark_file_chunking_by_characters(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("file_chunking_by_characters");
     group.sample_size(10);
-    group.measurement_time(Duration::from_secs(30));
+    group.measurement_time(Duration::from_secs(5));
     group.throughput(Throughput::Bytes(file_size)); // Still measure bytes/sec for comparison
 
     // Benchmark different chunk sizes (in CHARACTERS)

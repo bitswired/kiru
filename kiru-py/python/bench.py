@@ -1,13 +1,131 @@
 import itertools as it
+import json
+import subprocess
 import time
 import tracemalloc
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Tuple
 
 import pandas as pd
+from bench_plot import plot_benchmark_results
 from kiru import Chunker
 from langchain.text_splitter import CharacterTextSplitter
 from tqdm import tqdm
+
+
+def rust_native_chunking(
+    strategy: str,  # "bytes" or "chars"
+    source_type: str,  # "file" or "string"
+    path: str,
+    chunk_size: int,
+    overlap: int,
+) -> Tuple[float, float]:
+    """
+    Run pure Rust benchmark via subprocess.
+
+    Returns:
+        Tuple[float, float]: (elapsed_time_seconds, memory_usage_mb)
+        Note: memory_usage_mb is always 0 as we can't measure it from subprocess
+    """
+    benchmark_bin = Path("../target/release/benchmark")
+
+    if not benchmark_bin.exists():
+        raise FileNotFoundError(
+            f"Benchmark binary not found at {benchmark_bin}.\n"
+            "Run: cd kiru-core && cargo build --release --bin benchmark"
+        )
+
+    result = subprocess.run(
+        [
+            str(benchmark_bin),
+            strategy,
+            source_type,
+            path,
+            str(chunk_size),
+            str(overlap),
+        ],
+        capture_output=True,
+        text=True,
+        # check=True,
+        timeout=300,  # 5 minute timeout
+    )
+
+    bench_result = json.loads(result.stdout)
+
+    res = (
+        bench_result["elapsed_secs"],
+        float("nan"),
+    )  # Can't measure memory from subprocess
+
+    return res
+
+
+def ensure_rust_benchmark_built():
+    """Ensure the Rust benchmark binary is built."""
+    kiru_core = Path(__file__).parent.parent.parent / "kiru-core"
+    benchmark_bin = kiru_core / "target" / "release" / "benchmark"
+
+    if benchmark_bin.exists():
+        print("✓ Rust benchmark binary already exists")
+        return
+
+    print("Building Rust benchmark binary...")
+    try:
+        subprocess.run(
+            ["cargo", "build", "--release", "--bin", "benchmark"],
+            cwd=kiru_core,
+            check=True,
+            capture_output=True,
+        )
+        print("✓ Rust benchmark binary built successfully")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to build Rust benchmark binary: {e.stderr.decode()}")
+        raise
+
+
+def kiru_native_chunking_bytes_file(path: str, chunk_size: int, overlap: int):
+    """Run kiru byte-based chunking from file using Rust native benchmark."""
+    return rust_native_chunking(
+        strategy="bytes",
+        source_type="file",
+        path=path,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
+
+
+def kiru_native_chunking_chars_file(path: str, chunk_size: int, overlap: int):
+    """Run kiru character-based chunking from file using Rust native benchmark."""
+    return rust_native_chunking(
+        strategy="chars",
+        source_type="file",
+        path=path,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
+
+
+def kiru_native_chunking_bytes_string(text: str, chunk_size: int, overlap: int):
+    """Run kiru byte-based chunking from string using Rust native benchmark."""
+    return rust_native_chunking(
+        strategy="bytes",
+        source_type="string",
+        path=text,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
+
+
+def kiru_native_chunking_chars_string(text: str, chunk_size: int, overlap: int):
+    """Run kiru character-based chunking from string using Rust native benchmark."""
+    return rust_native_chunking(
+        strategy="chars",
+        source_type="string",
+        path=text,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
 
 
 def kiru_chunking_bytes_file(path: str, chunk_size: int, overlap: int) -> None:
@@ -126,10 +244,14 @@ def create_benchmark_config() -> list[BenchmarkConfig]:
     def k():
         return it.product(["kiru"], kiru_strategies, source)
 
+    def kn():
+        return it.product(["kiru-native"], kiru_strategies, source)
+
     kiru_configs = it.product(k(), base())
     langchain_configs = it.product(l(), base())
+    kiru_native_configs = it.product(kn(), base())
 
-    configs_gen = it.chain(kiru_configs, langchain_configs)
+    configs_gen = it.chain(kiru_native_configs, kiru_configs, langchain_configs)
 
     res = [
         BenchmarkConfig(
@@ -157,19 +279,23 @@ def run_benchmarks(configs: list[BenchmarkConfig]):
 
     pbar = tqdm(configs)
 
+    func_map = {
+        ("kiru-native", "chars", "string"): kiru_native_chunking_chars_string,
+        ("kiru-native", "chars", "file"): kiru_native_chunking_chars_file,
+        ("kiru-native", "bytes", "string"): kiru_native_chunking_bytes_string,
+        ("kiru-native", "bytes", "file"): kiru_native_chunking_bytes_file,
+        ("kiru", "chars", "string"): kiru_chunking_chars_string,
+        ("kiru", "chars", "file"): kiru_chunking_chars_file,
+        ("kiru", "bytes", "string"): kiru_chunking_bytes_string,
+        ("kiru", "bytes", "file"): kiru_chunking_bytes_file,
+        ("langchain", "chars", "string"): langchain_chunking_string,
+        ("langchain", "chars", "file"): langchain_chunking_file,
+    }
+
     for config in pbar:
         pbar.set_description_str(
             f"{config.library} | {config.strategy} | {config.source} | {config.file_size // (1024 * 1024)}MB | chunk: {config.chunk_size} | overlap: {config.overlap} | run: {config.run}"
         )
-
-        func_map = {
-            ("kiru", "chars", "string"): kiru_chunking_chars_string,
-            ("kiru", "chars", "file"): kiru_chunking_chars_file,
-            ("kiru", "bytes", "string"): kiru_chunking_bytes_string,
-            ("kiru", "bytes", "file"): kiru_chunking_bytes_file,
-            ("langchain", "chars", "string"): langchain_chunking_string,
-            ("langchain", "chars", "file"): langchain_chunking_file,
-        }
 
         func = func_map[(config.library, config.strategy, config.source)]
 
@@ -178,9 +304,13 @@ def run_benchmarks(configs: list[BenchmarkConfig]):
         else:
             x = config.file_path
 
-        exec_time, mem_usage = benchmark_function(
-            func, x, config.chunk_size, config.overlap
-        )
+        if config.library == "kiru-native":
+            (exec_time, mem_usage) = func(x, config.chunk_size, config.overlap)
+        else:
+            exec_time, mem_usage = benchmark_function(
+                func, x, config.chunk_size, config.overlap
+            )
+
         throughput = (
             config.file_size / exec_time / (1024 * 1024) if exec_time > 0 else 0
         )
@@ -204,6 +334,8 @@ def run_benchmarks(configs: list[BenchmarkConfig]):
 
 
 def main():
+    ensure_rust_benchmark_built()
+
     configs = create_benchmark_config()
 
     df = pd.DataFrame(run_benchmarks(configs))
@@ -220,6 +352,10 @@ def main():
         }
     )
     print(a)
+
+    df.to_csv("benchmark_results.csv", index=False)
+
+    plot_benchmark_results(df)
 
 
 if __name__ == "__main__":

@@ -1,13 +1,18 @@
 # kiru/Cargo.toml
 [package]
 name = "kiru"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 description = "Fast text chunking for Rust"
 license = "MIT"
 repository = "https://github.com/bitswired/kiru"
+readme = "../README.md"
 keywords = ["text", "chunking", "nlp", "rag"]
 categories = ["text-processing"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
 
 [lib]
 name = "kiru"
@@ -18,6 +23,8 @@ reqwest = { workspace = true }
 thiserror = { workspace = true }
 glob = { workspace = true }
 rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
