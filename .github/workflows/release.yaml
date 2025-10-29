@@ -9,8 +9,9 @@ on:
         type: string
 
 permissions:
-  contents: write # Changed to write for tagging
+  contents: write
   id-token: write
+
 jobs:
   build-wheels-linux:
     runs-on: ${{ matrix.platform.runner }}
@@ -19,6 +20,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
+      - name: Copy README to kiru-py
+        run: cp README.md kiru-py/README.md
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -55,6 +58,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
+      - name: Copy README to kiru-py
+        run: cp README.md kiru-py/README.md
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -88,6 +93,8 @@ jobs:
         with:
           python-version: 3.x
           architecture: ${{ matrix.platform.target }}
+      - name: Copy README to kiru-py
+        run: cp README.md kiru-py/README.md
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -115,6 +122,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
+      - name: Copy README to kiru-py
+        run: cp README.md kiru-py/README.md
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -142,7 +151,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
-      - name: Copy README to kiru-py # ← Add this step
+      - name: Copy README to kiru-py
         run: cp README.md kiru-py/README.md
       - name: Build sdist
         uses: PyO3/maturin-action@v1
@@ -187,7 +196,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Need full history for tagging
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
       - name: Publish kiru-core to crates.io
         env:
@@ -199,9 +208,6 @@ jobs:
           mkdir -p kiru-py/all_wheels
           find . -type f -name "*.whl" -exec cp {} kiru-py/all_wheels/ \;
 
-      - name: Copy README to kiru-py
-        run: cp README.md kiru-py/README.md
-
       - name: Publish kiru-py to PyPI
         uses: PyO3/maturin-action@v1
         env:
@@ -210,6 +216,7 @@ jobs:
           working-directory: kiru-py
           command: upload
           args: --non-interactive --skip-existing all_wheels/*.whl
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
