@@ -1,8 +1,8 @@
+use crossbeam_channel::bounded;
 use glob::glob;
 use rayon::prelude::*;
-use std::sync::{mpsc, Mutex};
+use std::io;
 use std::thread;
-use std::{io, sync::Arc};
 use thiserror::Error;
 
 use crate::{BytesChunker, CharactersChunker, StreamType};
@@ -249,9 +249,8 @@ impl ChunkerWithStrategy {
             StreamType::from_source(source)?; // This validates the source
         }
 
-        let (sender, receiver) = mpsc::sync_channel(channel_size);
+        let (sender, receiver) = bounded(channel_size);
         let chunker_params = self.chunker_params.clone();
-        let receiver: Arc<Mutex<mpsc::Receiver<String>>> = Arc::new(Mutex::new(receiver));
 
         thread::spawn({
             move || {
@@ -273,13 +272,7 @@ impl ChunkerWithStrategy {
             }
         });
 
-        let iterator = std::iter::from_fn({
-            let receiver: Arc<Mutex<mpsc::Receiver<String>>> = Arc::clone(&receiver); // Clone Arc for iterator
-            move || {
-                let receiver = receiver.lock().unwrap();
-                receiver.recv().ok()
-            }
-        });
+        let iterator = std::iter::from_fn(move || receiver.recv().ok());
 
         Ok(Box::new(iterator))
     }

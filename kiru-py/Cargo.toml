@@ -1,7 +1,7 @@
 # kiru-py/Cargo.toml
 [package]
 name = "kiru-py"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 description = "Python bindings for kiru text chunking library"
 repository = "https://github.com/bitswired/kiru"
@@ -17,6 +17,6 @@ pyo3 = { workspace = true }
 
 [dependencies.kiru]
 path = "../kiru-core"
-version = "0.1.9"
+version = "0.1.10"
 [build-dependencies]
 # None needed for simple bindings
