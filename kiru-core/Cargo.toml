@@ -25,6 +25,7 @@ glob = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+crossbeam-channel = "0.5.15"
 
 [dev-dependencies]
 tempfile = { workspace = true }
