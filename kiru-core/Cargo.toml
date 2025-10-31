@@ -1,7 +1,7 @@
 # kiru/Cargo.toml
 [package]
 name = "kiru"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 description = "Fast text chunking for Rust"
 license = "MIT"
