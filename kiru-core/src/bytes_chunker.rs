@@ -6,6 +6,7 @@ struct BytesChunkIndices {
     new_position: usize,
 }
 
+#[derive(Clone)]
 pub struct BytesChunker {
     chunk_size: usize,
     overlap: usize,

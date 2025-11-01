@@ -1,6 +1,6 @@
 // kiru-core/src/bin/benchmark.rs
 
-use kiru::{ChunkerBuilder, ChunkerEnum, Source};
+use kiru::{ChunkerBuilder, Source};
 use serde::Serialize;
 use std::env;
 use std::time::Instant;
@@ -77,21 +77,6 @@ fn run_benchmark(
     chunk_size: usize,
     overlap: usize,
 ) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
-    // Create the chunker using ChunkerBuilder
-    let chunker = match strategy {
-        "bytes" => ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-            chunk_size,
-            overlap,
-        }),
-        "chars" => ChunkerBuilder::by_characters(ChunkerEnum::Characters {
-            chunk_size,
-            overlap,
-        }),
-        _ => {
-            return Err(format!("Invalid strategy '{}'. Use 'bytes' or 'chars'", strategy).into());
-        }
-    };
-
     // Parse the source based on source_type
     let source = match source_type {
         "file" => Source::File(path.to_string()),
@@ -106,21 +91,42 @@ fn run_benchmark(
         }
     };
 
-    // Run the benchmark
+    // Create the chunker using ChunkerBuilder
+    match strategy {
+        "bytes" => {
+            let chunker = ChunkerBuilder::by_bytes(chunk_size, overlap)?;
+            bench_with(chunker, source)
+        }
+        "chars" => {
+            let chunker = ChunkerBuilder::by_characters(chunk_size, overlap)?;
+            bench_with(chunker, source)
+        }
+        _ => {
+            Err(format!("Invalid strategy '{}'. Use 'bytes' or 'chars'", strategy).into())
+        }
+    }
+}
+
+// Generic benchmarking body specialized for the concrete chunker type.
+fn bench_with<C>(
+    chunker: kiru::ChunkerWithStrategy<C>,
+    source: Source,
+) -> Result<BenchmarkResult, Box<dyn std::error::Error>>
+where
+    C: kiru::Chunker,
+{
     let start = Instant::now();
-    let mut num_chunks = 0;
-    let mut total_bytes = 0;
+    let mut num_chunks = 0usize;
+    let mut total_bytes = 0usize;
 
     let iterator = chunker.on_source(source)?;
-
     for chunk in iterator {
         num_chunks += 1;
         total_bytes += chunk.len();
         std::hint::black_box(chunk.len());
     }
 
-    let elapsed = start.elapsed();
-    let elapsed_secs = elapsed.as_secs_f64();
+    let elapsed_secs = start.elapsed().as_secs_f64();
     let throughput_mb_s = (total_bytes as f64) / (1024.0 * 1024.0) / elapsed_secs;
 
     Ok(BenchmarkResult {
