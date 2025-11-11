@@ -101,9 +101,7 @@ fn run_benchmark(
             let chunker = ChunkerBuilder::by_characters(chunk_size, overlap)?;
             bench_with(chunker, source)
         }
-        _ => {
-            Err(format!("Invalid strategy '{}'. Use 'bytes' or 'chars'", strategy).into())
-        }
+        _ => Err(format!("Invalid strategy '{}'. Use 'bytes' or 'chars'", strategy).into()),
     }
 }
 
