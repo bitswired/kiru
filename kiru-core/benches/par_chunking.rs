@@ -211,7 +211,7 @@ fn benchmark_channel_size(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
+                    let chunker = ChunkerBuilder::by_characters(CHUNK_SIZE, OVERLAP).unwrap();
                     let iter = chunker
                         .on_sources_par_stream(sources.clone(), channel_size)
                         .unwrap();
