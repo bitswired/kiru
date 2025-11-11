@@ -15,6 +15,7 @@ struct CharactersChunkIndices {
     new_char_position: usize,
 }
 
+#[derive(Clone)]
 pub struct CharactersChunker {
     chunk_size: usize,
     overlap: usize,

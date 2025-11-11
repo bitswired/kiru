@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use kiru::{ChunkerBuilder, ChunkerEnum, Source};
+use kiru::{ChunkerBuilder, Source};
 use std::fs;
 use std::hint::black_box;
 use std::time::Duration;
@@ -33,10 +33,7 @@ fn benchmark_bytes_chunking(c: &mut Criterion) {
     group.bench_function("serial_single", |b| {
         let source = Source::File(LARGE_FILE_PATH.to_string());
         b.iter(|| {
-            let chunker = ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-                chunk_size: CHUNK_SIZE,
-                overlap: OVERLAP,
-            });
+            let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
             let iter = chunker.on_source(source.clone()).unwrap();
             let chunks: Vec<_> = iter.collect();
             black_box(chunks);
@@ -54,10 +51,7 @@ fn benchmark_bytes_chunking(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-                        chunk_size: CHUNK_SIZE,
-                        overlap: OVERLAP,
-                    });
+                    let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
                     let iter = chunker.on_sources(sources.clone()).unwrap();
                     let chunks: Vec<_> = iter.collect();
                     black_box(chunks);
@@ -71,10 +65,7 @@ fn benchmark_bytes_chunking(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-                        chunk_size: CHUNK_SIZE,
-                        overlap: OVERLAP,
-                    });
+                    let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
                     let chunks: Vec<_> = chunker.on_sources_par(sources.clone()).unwrap();
                     black_box(chunks);
                 });
@@ -87,10 +78,7 @@ fn benchmark_bytes_chunking(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-                        chunk_size: CHUNK_SIZE,
-                        overlap: OVERLAP,
-                    });
+                    let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
                     let iter = chunker
                         .on_sources_par_stream(sources.clone(), CHANNEL_SIZE)
                         .unwrap();
@@ -122,10 +110,7 @@ fn benchmark_characters_chunking(c: &mut Criterion) {
     group.bench_function("serial_single", |b| {
         let source = Source::File(LARGE_FILE_PATH.to_string());
         b.iter(|| {
-            let chunker = ChunkerBuilder::by_characters(ChunkerEnum::Characters {
-                chunk_size: CHUNK_SIZE,
-                overlap: OVERLAP,
-            });
+            let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
             let iter = chunker.on_source(source.clone()).unwrap();
             let chunks: Vec<_> = iter.collect();
             black_box(chunks);
@@ -143,10 +128,7 @@ fn benchmark_characters_chunking(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_characters(ChunkerEnum::Characters {
-                        chunk_size: CHUNK_SIZE,
-                        overlap: OVERLAP,
-                    });
+                    let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
                     let iter = chunker.on_sources(sources.clone()).unwrap();
                     let chunks: Vec<_> = iter.collect();
                     black_box(chunks);
@@ -160,10 +142,7 @@ fn benchmark_characters_chunking(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_characters(ChunkerEnum::Characters {
-                        chunk_size: CHUNK_SIZE,
-                        overlap: OVERLAP,
-                    });
+                    let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
                     let chunks: Vec<_> = chunker.on_sources_par(sources.clone()).unwrap();
                     black_box(chunks);
                 });
@@ -176,10 +155,7 @@ fn benchmark_characters_chunking(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_characters(ChunkerEnum::Characters {
-                        chunk_size: CHUNK_SIZE,
-                        overlap: OVERLAP,
-                    });
+                    let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
                     let iter = chunker
                         .on_sources_par_stream(sources.clone(), CHANNEL_SIZE)
                         .unwrap();
@@ -219,10 +195,7 @@ fn benchmark_channel_size(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-                        chunk_size: CHUNK_SIZE,
-                        overlap: OVERLAP,
-                    });
+                    let chunker = ChunkerBuilder::by_bytes(CHUNK_SIZE, OVERLAP).unwrap();
                     let iter = chunker
                         .on_sources_par_stream(sources.clone(), channel_size)
                         .unwrap();
@@ -238,10 +211,7 @@ fn benchmark_channel_size(c: &mut Criterion) {
             &sources,
             |b, sources| {
                 b.iter(|| {
-                    let chunker = ChunkerBuilder::by_characters(ChunkerEnum::Characters {
-                        chunk_size: CHUNK_SIZE,
-                        overlap: OVERLAP,
-                    });
+                    let chunker = ChunkerBuilder::by_characters(CHUNK_SIZE, OVERLAP).unwrap();
                     let iter = chunker
                         .on_sources_par_stream(sources.clone(), channel_size)
                         .unwrap();

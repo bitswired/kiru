@@ -1,5 +1,8 @@
 use ::kiru as kiru_core;
-use kiru_core::{ChunkerEnum, ChunkerWithStrategy, HigherOrderSource, Source, SourceGenerator};
+use kiru_core::{
+    BytesChunker, CharactersChunker, ChunkerBuilder, ChunkerWithStrategy, HigherOrderSource,
+    Source, SourceGenerator,
+};
 use pyo3::prelude::*;
 
 // ============================================================================
@@ -51,10 +54,16 @@ fn parse_source_strings(source_strings: Vec<String>) -> PyResult<Vec<HigherOrder
 #[pyclass]
 pub struct Chunker;
 
+/// Internal enum storing a concrete, static-dispatch builder.
+enum PyChunker {
+    Bytes(ChunkerWithStrategy<BytesChunker>),
+    Chars(ChunkerWithStrategy<CharactersChunker>),
+}
+
 /// A wrapper around a chunker strategy, providing methods to chunk various sources.
 #[pyclass]
 pub struct ChunkerBuilderWrapper {
-    inner: ChunkerWithStrategy,
+    inner: PyChunker,
 }
 
 /// An iterator over chunks produced from one or more sources.
@@ -82,11 +91,11 @@ impl Chunker {
     ///     ValueError: If chunk_size is 0 or overlap is not less than chunk_size.
     #[staticmethod]
     fn by_bytes(chunk_size: usize, overlap: usize) -> PyResult<ChunkerBuilderWrapper> {
-        let chunker = kiru_core::ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-            chunk_size,
-            overlap,
-        });
-        Ok(ChunkerBuilderWrapper { inner: chunker })
+        let chunker = ChunkerBuilder::by_bytes(chunk_size, overlap)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(ChunkerBuilderWrapper {
+            inner: PyChunker::Bytes(chunker),
+        })
     }
 
     /// Create a characters-based chunker with the specified chunk size and overlap.
@@ -102,11 +111,80 @@ impl Chunker {
     ///     ValueError: If chunk_size is 0 or overlap is not less than chunk_size.
     #[staticmethod]
     fn by_characters(chunk_size: usize, overlap: usize) -> PyResult<ChunkerBuilderWrapper> {
-        let chunker = kiru_core::ChunkerBuilder::by_characters(ChunkerEnum::Characters {
-            chunk_size,
-            overlap,
-        });
-        Ok(ChunkerBuilderWrapper { inner: chunker })
+        let chunker = ChunkerBuilder::by_characters(chunk_size, overlap)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(ChunkerBuilderWrapper {
+            inner: PyChunker::Chars(chunker),
+        })
+    }
+}
+
+// Small helper to de-duplicate single-source handling.
+impl ChunkerBuilderWrapper {
+    fn on_source_internal(&self, source: Source) -> PyResult<ChunkerIterator> {
+        match &self.inner {
+            PyChunker::Bytes(b) => {
+                let inner_iter = b
+                    .on_source(source)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(ChunkerIterator {
+                    inner: Box::new(inner_iter),
+                })
+            }
+            PyChunker::Chars(c) => {
+                let inner_iter = c
+                    .on_source(source)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(ChunkerIterator {
+                    inner: Box::new(inner_iter),
+                })
+            }
+        }
+    }
+
+    fn on_sources_internal(&self, sources: Vec<Source>) -> PyResult<ChunkerIterator> {
+        match &self.inner {
+            PyChunker::Bytes(b) => {
+                let inner_iter = b
+                    .on_sources(sources)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(ChunkerIterator {
+                    inner: Box::new(inner_iter),
+                })
+            }
+            PyChunker::Chars(c) => {
+                let inner_iter = c
+                    .on_sources(sources)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(ChunkerIterator {
+                    inner: Box::new(inner_iter),
+                })
+            }
+        }
+    }
+    fn on_sources_par_internal(
+        &self,
+        sources: Vec<Source>,
+        channel_size: usize,
+    ) -> PyResult<ChunkerIterator> {
+        match &self.inner {
+            PyChunker::Bytes(b) => {
+                let inner_iter = b
+                    .on_sources_par_stream(sources, channel_size)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(ChunkerIterator {
+                    inner: Box::new(inner_iter),
+                })
+            }
+            PyChunker::Chars(c) => {
+                let inner_iter = c
+                    .on_sources_par_stream(sources, channel_size)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(ChunkerIterator {
+                    inner: Box::new(inner_iter),
+                })
+            }
+        }
     }
 }
 
@@ -124,11 +202,7 @@ impl ChunkerBuilderWrapper {
     ///     ValueError: If the input cannot be processed.
     fn on_string(&self, text: String) -> PyResult<ChunkerIterator> {
         let source = Source::Text(text);
-        let iterator = self
-            .inner
-            .on_source(source)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(ChunkerIterator { inner: iterator })
+        self.on_source_internal(source)
     }
 
     /// Chunk a single file from a local path.
@@ -143,11 +217,7 @@ impl ChunkerBuilderWrapper {
     ///     ValueError: If the file cannot be read (e.g., does not exist).
     fn on_file(&self, path: String) -> PyResult<ChunkerIterator> {
         let source = Source::File(path);
-        let iterator = self
-            .inner
-            .on_source(source)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(ChunkerIterator { inner: iterator })
+        self.on_source_internal(source)
     }
 
     /// Chunk content from an HTTP/HTTPS URL.
@@ -162,11 +232,7 @@ impl ChunkerBuilderWrapper {
     ///     ValueError: If the URL cannot be fetched or content cannot be processed.
     fn on_http(&self, url: String) -> PyResult<ChunkerIterator> {
         let source = Source::Http(url);
-        let iterator = self
-            .inner
-            .on_source(source)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(ChunkerIterator { inner: iterator })
+        self.on_source_internal(source)
     }
 
     /// Chunk multiple sources specified as strings with prefixes.
@@ -200,12 +266,7 @@ impl ChunkerBuilderWrapper {
         let sources = HigherOrderSource::into_flattened_sources(higher_order_sources)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
-        let iterator = self
-            .inner
-            .on_sources(sources)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-
-        Ok(ChunkerIterator { inner: iterator })
+        self.on_sources_internal(sources)
     }
 
     /// Chunk multiple sources in parallel, specified as strings with prefixes.
@@ -244,14 +305,7 @@ impl ChunkerBuilderWrapper {
         let sources = HigherOrderSource::into_flattened_sources(higher_order_sources)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
-        let iterator = self
-            .inner
-            .on_sources_par_stream(sources, channel_size.unwrap_or(1000))
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-
-        Ok(ChunkerIterator {
-            inner: Box::new(iterator),
-        })
+        self.on_sources_par_internal(sources, channel_size.unwrap_or(1000))
     }
 }
 

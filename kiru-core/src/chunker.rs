@@ -159,7 +159,7 @@ where
     }
 }
 
-pub trait Chunker {
+pub trait Chunker: Clone + Sync + Send + 'static {
     fn chunk_string(self, input: String) -> impl Iterator<Item = String>;
     fn chunk_stream(self, input: impl Iterator<Item = String>) -> impl Iterator<Item = String>;
 }
@@ -173,58 +173,48 @@ pub enum ChunkerEnum {
 pub struct ChunkerBuilder {}
 
 impl ChunkerBuilder {
-    pub fn by_bytes(chunker_params: ChunkerEnum) -> ChunkerWithStrategy {
-        ChunkerWithStrategy { chunker_params }
+    pub fn by_bytes(
+        chunk_size: usize,
+        overlap: usize,
+    ) -> Result<ChunkerWithStrategy<BytesChunker>, ChunkingError> {
+        Ok(ChunkerWithStrategy {
+            chunker: BytesChunker::new(chunk_size, overlap)?,
+        })
     }
 
-    pub fn by_characters(chunker_params: ChunkerEnum) -> ChunkerWithStrategy {
-        ChunkerWithStrategy { chunker_params }
+    pub fn by_characters(
+        chunk_size: usize,
+        overlap: usize,
+    ) -> Result<ChunkerWithStrategy<CharactersChunker>, ChunkingError> {
+        Ok(ChunkerWithStrategy {
+            chunker: CharactersChunker::new(chunk_size, overlap)?,
+        })
     }
 }
 
 // Update ChunkerWithStrategy to use ChunkerEnum
-pub struct ChunkerWithStrategy {
-    chunker_params: ChunkerEnum,
+pub struct ChunkerWithStrategy<C: Chunker> {
+    chunker: C,
 }
 
-impl ChunkerWithStrategy {
-    pub fn on_source(
-        &self,
-        source: Source,
-    ) -> Result<Box<dyn Iterator<Item = String> + Send + Sync>, ChunkingError> {
+impl<C: Chunker> ChunkerWithStrategy<C> {
+    pub fn on_source(&self, source: Source) -> Result<impl Iterator<Item = String>, ChunkingError> {
         let stream = StreamType::from_source(&source)?;
 
-        match self.chunker_params {
-            ChunkerEnum::Bytes {
-                chunk_size,
-                overlap,
-            } => {
-                let chunker = BytesChunker::new(chunk_size, overlap)?;
-                Ok(Box::new(chunker.chunk_stream(stream)))
-            }
-            ChunkerEnum::Characters {
-                chunk_size,
-                overlap,
-            } => {
-                let chunker = CharactersChunker::new(chunk_size, overlap)?;
-                Ok(Box::new(chunker.chunk_stream(stream)))
-            }
-        }
+        Ok(self.chunker.clone().chunk_stream(stream))
     }
 
     pub fn on_sources(
         &self,
         sources: Vec<Source>,
-    ) -> Result<Box<dyn Iterator<Item = String> + Send + Sync>, ChunkingError> {
-        let iterators: Vec<Box<dyn Iterator<Item = String> + Send + Sync>> = sources
+    ) -> Result<impl Iterator<Item = String>, ChunkingError> {
+        let iterators = sources
             .into_iter()
             .map(|s| self.on_source(s))
             .collect::<Result<Vec<_>, _>>()?;
 
         // Chain all iterators together
-        let chained = iterators.into_iter().flatten();
-
-        Ok(Box::new(chained))
+        Ok(iterators.into_iter().flatten())
     }
 
     pub fn on_sources_par(&self, sources: Vec<Source>) -> Result<Vec<String>, ChunkingError> {
@@ -243,26 +233,23 @@ impl ChunkerWithStrategy {
         &self,
         sources: Vec<Source>,
         channel_size: usize,
-    ) -> Result<Box<dyn Iterator<Item = String> + Send + Sync>, ChunkingError> {
+    ) -> Result<impl Iterator<Item = String>, ChunkingError> {
         // Pre-validate: check all sources are accessible
         for source in &sources {
             StreamType::from_source(source)?; // This validates the source
         }
 
         let (sender, receiver) = bounded(channel_size);
-        let chunker_params = self.chunker_params.clone();
+        let chunker = self.chunker.clone();
 
         thread::spawn({
             move || {
                 sources.into_par_iter().for_each(|source| {
                     let sender = sender.clone();
-                    let chunker = ChunkerWithStrategy {
-                        chunker_params: chunker_params.clone(),
-                    };
 
                     // Should not fail since we pre-validated
-                    if let Ok(iter) = chunker.on_source(source) {
-                        for chunk in iter {
+                    if let Ok(stream) = StreamType::from_source(&source) {
+                        for chunk in chunker.clone().chunk_stream(stream) {
                             if sender.send(chunk).is_err() {
                                 break;
                             }
@@ -294,12 +281,10 @@ mod tests {
 
         println!("{:?}", sources);
 
-        let u = ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-            chunk_size: 1024,
-            overlap: 128,
-        })
-        .on_sources_par_stream(sources, 1000)
-        .unwrap();
+        let u = ChunkerBuilder::by_bytes(1024, 128)
+            .unwrap()
+            .on_sources_par_stream(sources, 1000)
+            .unwrap();
 
         // Add assertions here
         for chunk in u {
@@ -318,10 +303,7 @@ mod tests {
         let sources = HigherOrderSource::into_flattened_sources(sources).unwrap();
 
         let start = Instant::now();
-        let chunker = ChunkerBuilder::by_bytes(ChunkerEnum::Bytes {
-            chunk_size: 1024,
-            overlap: 128,
-        });
+        let chunker = ChunkerBuilder::by_bytes(1024, 128).unwrap();
         let chunks = chunker
             .on_sources_par_stream(sources, 10000)
             .unwrap()
